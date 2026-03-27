@@ -1,0 +1,11 @@
+{
+  "input_dir": "~/data/RAW",
+  "output_dir": null,
+  "size": 1200,
+  "quality": 85,
+  "recursive": false,
+  "overwrite": false,
+  "preserve_exif": true,
+  "workers": null,
+  "max_total_mb": 50
+}

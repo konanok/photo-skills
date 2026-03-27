@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# CodeBuddy
+.codebuddy/
+
+# Model cache (large files, downloaded on demand)
+*.pth
+*.pt
+*.bin
+
+# Output data (user-specific)
+*.jpg
+*.jpeg
+*.png
+!*.md
+
+# Config (user-specific, use config.example.json as template)
+config.json
+
+# Grading params (user-specific session data)
+grading_params.json
+filter_report.json
