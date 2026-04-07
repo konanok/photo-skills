@@ -23,7 +23,6 @@ Thumbs.db
 
 # CodeBuddy
 .codebuddy/
-CODEBUDDY.md
 
 # Model cache (large files, downloaded on demand)
 *.pth
@@ -35,6 +34,7 @@ CODEBUDDY.md
 *.jpeg
 *.png
 !*.md
+CODEBUDDY.md
 
 # Config (user-specific, use config.example.toml as template)
 config.json
