@@ -64,23 +64,28 @@ Uses Apple MobileCLIP2-S0 (512-dim, ~27ms/image) via `open_clip`:
 
 ### Initial Setup
 
+**Prefer venv**: Always activate (or create) a virtual environment before running scripts or installing dependencies.
+
 ```bash
+# Create venv and install all dependencies (recommended)
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r photo-converter/requirements.txt -r photo-grader/requirements.txt -r photo-screener/requirements.txt
+
 # Create config files from templates (required before first use)
 cp photo-converter/config.example.toml photo-converter/config.toml
 cp photo-grader/config.example.toml    photo-grader/config.toml
 cp photo-screener/config.example.toml  photo-screener/config.toml
 # Edit each config.toml to set your input/output directories
 
-# One-command dependency install (interactive, all three skills)
+# Or use the all-in-one setup script
 bash setup.sh
 
-# Or check environment health without installing
+# Check environment health
 bash check_env.sh
 
-# Or install a single skill's dependencies
-bash photo-converter/scripts/setup_deps.sh
-bash photo-grader/scripts/setup_deps.sh
-bash photo-screener/scripts/setup_deps.sh
+# Before each session, activate venv
+source .venv/bin/activate
 ```
 
 ### photo-converter

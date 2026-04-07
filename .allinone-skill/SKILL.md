@@ -100,6 +100,8 @@ Key behaviors:
 
 ## Setup
 
+**Prefer venv**: Before running scripts, activate the project-root virtual environment (e.g. `.venv/`). If it doesn't exist, create one first:
+
 ```bash
 # 1. Create config files
 cp photo-converter/config.example.toml photo-converter/config.toml
@@ -107,11 +109,19 @@ cp photo-grader/config.example.toml    photo-grader/config.toml
 cp photo-screener/config.example.toml  photo-screener/config.toml
 # Edit each config.toml to set your input/output directories
 
-# 2. Install dependencies
+# 2. Create venv and install dependencies (recommended)
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r photo-converter/requirements.txt -r photo-grader/requirements.txt -r photo-screener/requirements.txt
+
+# Or use the all-in-one setup script
 bash setup.sh
 
 # 3. Verify environment
 bash check_env.sh
+
+# Before each session, activate venv
+source .venv/bin/activate
 ```
 
 ### System Requirements

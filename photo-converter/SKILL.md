@@ -33,49 +33,56 @@ Convert camera RAW files (NEF/CR2/CR3/ARW/RAF/ORF/DNG/...), JPG photos, and Appl
 
 ### Camera RAW
 
-| Brand       | Extensions            |
-| ----------- | --------------------- |
-| Nikon       | `.nef`, `.nrw`        |
-| Canon       | `.cr2`, `.cr3`, `.crw`|
-| Sony        | `.arw`, `.srf`, `.sr2`|
-| Fujifilm    | `.raf`                |
-| Olympus/OM  | `.orf`                |
-| Panasonic   | `.rw2`                |
-| Pentax      | `.pef`                |
-| Samsung     | `.srw`                |
-| Leica       | `.rwl`, `.dng`        |
-| Adobe DNG   | `.dng`                |
-| Hasselblad  | `.3fr`, `.fff`        |
-| Phase One   | `.iiq`                |
-| Sigma       | `.x3f`                |
+| Brand      | Extensions             |
+| ---------- | ---------------------- |
+| Nikon      | `.nef`, `.nrw`         |
+| Canon      | `.cr2`, `.cr3`, `.crw` |
+| Sony       | `.arw`, `.srf`, `.sr2` |
+| Fujifilm   | `.raf`                 |
+| Olympus/OM | `.orf`                 |
+| Panasonic  | `.rw2`                 |
+| Pentax     | `.pef`                 |
+| Samsung    | `.srw`                 |
+| Leica      | `.rwl`, `.dng`         |
+| Adobe DNG  | `.dng`                 |
+| Hasselblad | `.3fr`, `.fff`         |
+| Phase One  | `.iiq`                 |
+| Sigma      | `.x3f`                 |
 
 ### Standard Image
 
-| Format | Extensions       | Notes |
-| ------ | ---------------- | ----- |
-| JPEG   | `.jpg`, `.jpeg`  | 直接 Pillow 处理 |
+| Format | Extensions      | Notes            |
+| ------ | --------------- | ---------------- |
+| JPEG   | `.jpg`, `.jpeg` | 直接 Pillow 处理 |
 
 ### Apple (iPhone/iPad)
 
-| Format    | Extensions       | Notes |
-| --------- | ---------------- | ----- |
+| Format    | Extensions       | Notes                          |
+| --------- | ---------------- | ------------------------------ |
 | HEIC/HEIF | `.heic`, `.heif` | 需要 `pip install pillow-heif` |
 
 ## Dependencies
 
 **Declaration file:** `requirements.txt`
 
-```bash
-# Check environment (dependencies + config)
-bash check_env.sh
+**Prefer venv**: Before running scripts, activate the project-root virtual environment (e.g. `.venv/`). If it doesn't exist, create one first:
 
-# Install all skills' dependencies at once (recommended)
+```bash
+# Create venv and install dependencies (recommended)
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r photo-converter/requirements.txt
+
+# Or use the all-in-one setup script
 bash setup.sh
 
-# Or install this skill only
-bash photo-converter/scripts/setup_deps.sh
+# Before each session, activate venv
+source .venv/bin/activate
+```
 
-# Or install manually:
+Alternatively, install globally:
+
+```bash
 brew install libraw              # macOS
 # apt-get install libraw-dev     # Debian/Ubuntu
 # dnf install LibRaw-devel       # RedHat/CentOS/Fedora
@@ -83,6 +90,7 @@ pip3 install -r photo-converter/requirements.txt
 ```
 
 **Verify:**
+
 ```bash
 python3 -c "import rawpy; from PIL import Image; import numpy; print('✓ Core dependencies installed')"
 python3 -c "from pillow_heif import register_heif_opener; print('✓ HEIC/HEIF support available')" 2>/dev/null || echo "ℹ HEIC/HEIF support not installed (optional: pip install pillow-heif)"
@@ -109,17 +117,17 @@ python3 scripts/convert.py ~/data/RAW ~/data/output/thumbnails --size 2048 --qua
 python3 scripts/convert.py ~/data/RAW ~/data/output/thumbnails --dry-run
 ```
 
-| Option        | Description                    | Default     |
-| ------------- | ------------------------------ | ----------- |
-| `input`       | Photo file or directory         | from config |
-| `output_dir`  | Output directory               | from config |
-| `--size`      | Max thumbnail dimension (px)   | 1200        |
-| `--quality`   | JPEG quality (1-100)           | 85          |
-| `--workers`   | Parallel workers               | auto (max 8)|
-| `--recursive` | Search subdirectories          | off         |
-| `--overwrite` | Overwrite existing files       | off         |
-| `--dry-run`   | Preview only                   | off         |
-| `--no-exif`   | Skip EXIF copy                 | off         |
+| Option        | Description                  | Default      |
+| ------------- | ---------------------------- | ------------ |
+| `input`       | Photo file or directory      | from config  |
+| `output_dir`  | Output directory             | from config  |
+| `--size`      | Max thumbnail dimension (px) | 1200         |
+| `--quality`   | JPEG quality (1-100)         | 85           |
+| `--workers`   | Parallel workers             | auto (max 8) |
+| `--recursive` | Search subdirectories        | off          |
+| `--overwrite` | Overwrite existing files     | off          |
+| `--dry-run`   | Preview only                 | off          |
+| `--no-exif`   | Skip EXIF copy               | off          |
 
 ### 2. `find_by_date.py` — Find Photo Files by Date
 
@@ -156,16 +164,16 @@ python3 scripts/layout_preview.py ~/data/output/graded --grid \
     --params grading_params.json
 ```
 
-| Option        | Description                    | Default     |
-| ------------- | ------------------------------ | ----------- |
-| `graded_dir`  | Graded JPG directory (required)| —           |
-| `--originals` | Original photos directory      | auto-detect |
-| `--params`    | grading_params.json path       | none        |
-| `--grid`      | Use grid layout instead        | off (comparison) |
-| `--cell-size` | Row height / grid cell px      | 800         |
-| `--gap`       | Gap between images px          | 6           |
-| `--quality`   | JPEG output quality            | 92          |
-| `-o/--output` | Output path                    | `../layout_preview.jpg` |
+| Option        | Description                     | Default                 |
+| ------------- | ------------------------------- | ----------------------- |
+| `graded_dir`  | Graded JPG directory (required) | —                       |
+| `--originals` | Original photos directory       | auto-detect             |
+| `--params`    | grading_params.json path        | none                    |
+| `--grid`      | Use grid layout instead         | off (comparison)        |
+| `--cell-size` | Row height / grid cell px       | 800                     |
+| `--gap`       | Gap between images px           | 6                       |
+| `--quality`   | JPEG output quality             | 92                      |
+| `-o/--output` | Output path                     | `../layout_preview.jpg` |
 
 > **Note**: Without `--grid`, the script generates side-by-side BEFORE|AFTER comparisons.
 > Use `--grid` only when user explicitly requests 四宫格 or 九宫格.

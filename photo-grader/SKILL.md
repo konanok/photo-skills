@@ -46,17 +46,24 @@ Plus: JPEG (.jpg/.jpeg) and Apple HEIC/HEIF (.heic/.heif, requires `pillow-heif`
 
 **Declaration file:** `requirements.txt`
 
-```bash
-# Check environment (dependencies + config)
-bash check_env.sh
+**Prefer venv**: Before running scripts, activate the project-root virtual environment (e.g. `.venv/`). If it doesn't exist, create one first:
 
-# Install all skills' dependencies at once (recommended)
+```bash
+# Create venv and install dependencies (recommended)
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r photo-grader/requirements.txt
+
+# Or use the all-in-one setup script
 bash setup.sh
 
-# Or install this skill only
-bash photo-grader/scripts/setup_deps.sh
+# Before each session, activate venv
+source .venv/bin/activate
+```
 
-# Or install manually:
+Alternatively, install globally:
+
+```bash
 brew install libraw              # macOS
 # apt-get install libraw-dev     # Debian/Ubuntu
 # dnf install LibRaw-devel       # RedHat/CentOS/Fedora

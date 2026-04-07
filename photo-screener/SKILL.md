@@ -37,14 +37,14 @@ Intelligently filter, deduplicate, and classify photos using Apple MobileCLIP2-S
 
 Based on 4-model comparison test:
 
-| Metric | MobileCLIP2-S0 | ViT-L/14 (baseline) |
-|--------|:-:|:-:|
-| **Encoding Speed** | **26.7ms/img** ⚡ | 483.7ms/img |
-| **Speed Ratio** | **18.1x faster** | 1x |
-| **Pearson Correlation** | **0.78** | 1.0 (baseline) |
-| **Top-10 Overlap** | **8/10** | 10/10 |
-| **Model Size** | **74.8M** | 427.6M |
-| **Embed Dim** | 512 | 768 |
+| Metric                  |  MobileCLIP2-S0   | ViT-L/14 (baseline) |
+| ----------------------- | :---------------: | :-----------------: |
+| **Encoding Speed**      | **26.7ms/img** ⚡ |     483.7ms/img     |
+| **Speed Ratio**         | **18.1x faster**  |         1x          |
+| **Pearson Correlation** |     **0.78**      |   1.0 (baseline)    |
+| **Top-10 Overlap**      |     **8/10**      |        10/10        |
+| **Model Size**          |     **74.8M**     |       427.6M        |
+| **Embed Dim**           |        512        |         768         |
 
 > 💡 1/18 of the time, 80% selection consistency — best speed/quality tradeoff.
 
@@ -52,33 +52,41 @@ Based on 4-model comparison test:
 
 **Declaration file:** `requirements.txt`
 
-```bash
-# Check environment (dependencies + config)
-bash check_env.sh
+**Prefer venv**: Before running scripts, activate the project-root virtual environment (e.g. `.venv/`). If it doesn't exist, create one first:
 
-# Install all skills' dependencies at once (recommended)
+```bash
+# Create venv and install dependencies (recommended)
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r photo-screener/requirements.txt
+
+# Or use the all-in-one setup script
 bash setup.sh
 
-# Or install this skill only
-bash photo-screener/scripts/setup_deps.sh
+# Before each session, activate venv
+source .venv/bin/activate
+```
 
-# Or install manually:
+Alternatively, install globally:
+
+```bash
 pip3 install -r photo-screener/requirements.txt
 ```
 
 ## Model Download Policy
 
 **The model is NOT pre-downloaded.** This is by design to avoid:
+
 - Unexpected large downloads (~300MB)
 - Wasted bandwidth if the user doesn't need this skill
 
 ### Download Behavior
 
-| Mode | Behavior |
-|------|----------|
-| **Interactive** (terminal) | Prompts user: "是否下载模型？[Y/n]" |
+| Mode                              | Behavior                                |
+| --------------------------------- | --------------------------------------- |
+| **Interactive** (terminal)        | Prompts user: "是否下载模型？[Y/n]"     |
 | **Non-interactive** (piped/agent) | Exits with manual download instructions |
-| **--auto-download flag** | Downloads without confirmation |
+| **--auto-download flag**          | Downloads without confirmation          |
 
 ### Manual Download
 
@@ -115,17 +123,17 @@ python3 scripts/screen.py ~/data/output/{session-id}/thumbnails --auto-download
 python3 scripts/screen.py ~/data/output/{session-id}/thumbnails --dry-run
 ```
 
-| Option             | Description                    | Default        |
-| ------------------ | ------------------------------ | -------------- |
-| `input_dir`        | Directory with photos          | required       |
-| `--output`, `-o`   | Output JSON path               | auto           |
-| `--min-score`      | Min aesthetic score (1-10)     | 4.0            |
-| `--sim-threshold`  | Dedup threshold (0-1)          | 0.97           |
-| `--batch-size`     | Max photos per LLM batch       | 20             |
-| `--top-k`          | Keep only top K                | all            |
-| `--recursive`      | Search subdirectories          | off            |
-| `--auto-download`  | Skip model download prompt     | off            |
-| `--dry-run`        | Preview only                   | off            |
+| Option            | Description                | Default  |
+| ----------------- | -------------------------- | -------- |
+| `input_dir`       | Directory with photos      | required |
+| `--output`, `-o`  | Output JSON path           | auto     |
+| `--min-score`     | Min aesthetic score (1-10) | 4.0      |
+| `--sim-threshold` | Dedup threshold (0-1)      | 0.97     |
+| `--batch-size`    | Max photos per LLM batch   | 20       |
+| `--top-k`         | Keep only top K            | all      |
+| `--recursive`     | Search subdirectories      | off      |
+| `--auto-download` | Skip model download prompt | off      |
+| `--dry-run`       | Preview only               | off      |
 
 ## Pipeline
 
