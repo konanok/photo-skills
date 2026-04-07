@@ -24,8 +24,7 @@ Model Download:
         "import open_clip; open_clip.create_model_and_transforms('MobileCLIP2-S0', pretrained='dfndr2b')"
 
 Configuration:
-    Default options from config.json (next to scripts/ dir):
-        ~/.openclaw/workspace-photographer/skills/photo-screener/config.json
+    Default options from config.toml (next to scripts/ dir).
 
 Usage:
     python screen.py ~/Downloads/output/{session-id}/thumbnails

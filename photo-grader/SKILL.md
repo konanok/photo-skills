@@ -13,9 +13,11 @@ description: |
   - Batch apply Lightroom-style adjustments (exposure, contrast, HSL, tone curve, etc.)
   - Process a set of photo files with AI-recommended color parameters
   - Export color-graded JPGs from RAW/JPG/HEIC files
+  - Apply uniform grading to all files in a directory (timelapse / batch mode)
 
   Triggers: User mentions color grading RAW files, applying Lightroom parameters,
-  post-processing camera RAW photos, or grading photos based on AI recommendations.
+  post-processing camera RAW photos, grading photos based on AI recommendations,
+  or uniform grading for timelapse sequences.
 
   Dependencies:
     System: libraw (RedHat: dnf install LibRaw-devel / Debian: apt-get install libraw-dev)
@@ -24,7 +26,7 @@ description: |
 
   Workflow:
   1. Use `photo-converter` to generate thumbnails
-  2. Use the prompt in `~/.openclaw/workspace-photocurator/prompts/photo_curator_prompt.md` with multimodal LLM
+  2. Use multimodal LLM with photo curator prompt to generate grading parameters
   3. Save LLM's JSON output as `grading_params.json`
   4. Run `grade.py` to batch-apply grading
 
@@ -84,21 +86,29 @@ python3 scripts/grade.py grading_params.json \
 # Full resolution
 python3 scripts/grade.py grading_params.json --no-resize
 
+# Uniform mode: apply one parameter set to ALL files in a directory
+# (useful for timelapse or batch-processing with identical settings)
+python3 scripts/grade.py grading_params.json \
+    --uniform-dir ~/data/timelapse --output ~/data/output/graded
+
 # Preview
 python3 scripts/grade.py grading_params.json --dry-run
 ```
 
-| Option        | Description              | Default      |
-| ------------- | ------------------------ | ------------ |
-| `params_json` | Grading parameters JSON  | required     |
-| `--raw-dir`   | RAW files directory      | from config  |
-| `--output`    | Output directory         | from config  |
-| `--quality`   | JPEG quality (1-100)     | 95           |
-| `--size`      | Max output dimension     | full res     |
-| `--workers`   | Parallel workers         | auto (max 8) |
-| `--overwrite` | Overwrite existing files | off          |
-| `--no-resize` | Full RAW resolution      | off          |
-| `--dry-run`   | Preview only             | off          |
+| Option          | Description                                     | Default      |
+| --------------- | ----------------------------------------------- | ------------ |
+| `params_json`   | Grading parameters JSON                         | required     |
+| `--raw-dir`     | RAW files directory                             | from config  |
+| `--uniform-dir` | Apply first param set to ALL files in directory | —            |
+| `--output`      | Output directory                                | from config  |
+| `--quality`     | JPEG quality (1-100)                            | 95           |
+| `--size`        | Max output dimension                            | full res     |
+| `--workers`     | Parallel workers                                | auto (max 8) |
+| `--overwrite`   | Overwrite existing files                        | off          |
+| `--no-resize`   | Full RAW resolution                             | off          |
+| `--dry-run`     | Preview only                                    | off          |
+
+> **Note**: `--uniform-dir` ignores the `file` field in the JSON and applies the first parameter set to every supported photo in the directory. Useful for timelapse sequences where all frames share one grading preset.
 
 ## Color Grading Features
 
@@ -129,16 +139,3 @@ The `find_raw_file()` function intelligently matches filenames across camera bra
 2. **Ensure thumbnails**: use `photo-converter` first
 3. **Get grading params**: use `photo_curator_prompt.md` prompt with multimodal LLM
 4. **Run grading**: `python3 scripts/grade.py grading_params.json --raw-dir ... --output ...`
-
-### Script Paths
-
-```
-~/.openclaw/workspace-photographer/skills/photo-grader/scripts/grade.py
-~/.openclaw/workspace-photographer/skills/photo-grader/scripts/setup_deps.sh
-```
-
-### Prompt (in sibling skill)
-
-```
-~/.openclaw/workspace-photocurator/prompts/photo_curator_prompt.md
-```

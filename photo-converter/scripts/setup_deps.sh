@@ -33,6 +33,13 @@ else
     ALL_OK=false
 fi
 
+if command -v ffmpeg &>/dev/null; then
+    FFMPEG_VER=$(ffmpeg -version 2>&1 | head -1 | awk '{print $3}')
+    echo -e "  ${GREEN}✓${NC} ffmpeg ($FFMPEG_VER)"
+else
+    echo -e "  ${YELLOW}ℹ${NC} ffmpeg — 未安装（assemble.py 需要，可选）"
+fi
+
 # ── 2. Check Python dependencies ───────────────────────────
 echo ""
 echo "🔍 检查 Python 依赖..."

@@ -96,7 +96,7 @@ HF_ENDPOINT=https://hf-mirror.com python3 -c \
     "import open_clip; open_clip.create_model_and_transforms('MobileCLIP2-S0', pretrained='dfndr2b')"
 
 # Or run setup script
-bash ~/.openclaw/workspace-photographer/skills/photo-screener/scripts/setup_deps.sh
+bash photo-screener/scripts/setup_deps.sh
 ```
 
 ## Configuration
@@ -167,15 +167,8 @@ When using this skill from an agent:
 
 ```bash
 # Agent-friendly command (auto-download)
-python3 ~/.openclaw/workspace-photographer/skills/photo-screener/scripts/screen.py \
+python3 photo-screener/scripts/screen.py \
     ~/data/output/{session-id}/thumbnails \
     --output ~/data/output/{session-id}/filter_report.json \
     --auto-download
-```
-
-### Script Paths
-
-```
-~/.openclaw/workspace-photographer/skills/photo-screener/scripts/screen.py
-~/.openclaw/workspace-photographer/skills/photo-screener/scripts/setup_deps.sh
 ```

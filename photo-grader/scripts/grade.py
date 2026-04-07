@@ -857,6 +857,21 @@ def find_raw_file(raw_dir, filename):
     return None
 
 
+def find_supported_files(input_dir, recursive=False):
+    """Find all supported photo files (RAW/JPG/HEIC) in directory, sorted by name."""
+    input_dir = Path(input_dir)
+    results = []
+    if recursive:
+        for p in sorted(input_dir.rglob("*")):
+            if p.is_file() and p.suffix.lower() in SUPPORTED_EXTENSIONS:
+                results.append(p)
+    else:
+        for p in sorted(input_dir.iterdir()):
+            if p.is_file() and p.suffix.lower() in SUPPORTED_EXTENSIONS:
+                results.append(p)
+    return results
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Apply Lightroom-style color grading to camera RAW files",
@@ -870,10 +885,15 @@ Examples:
   %(prog)s grading_params.json --raw-dir ~/Photos/RAW --output ~/Photos/Graded
   %(prog)s grading_params.json --quality 98 --no-resize
   %(prog)s grading_params.json --dry-run
+
+  # Uniform mode: apply one parameter set to all files in a directory
+  # (useful for timelapse or batch-processing with identical settings)
+  %(prog)s grading_params.json --uniform-dir ~/Photos/timelapse --output ~/Photos/graded
         """,
     )
     parser.add_argument("params_json", help="JSON file with grading parameters")
     parser.add_argument("--raw-dir", type=str, default=None, help="Directory containing RAW files (default: from config)")
+    parser.add_argument("--uniform-dir", type=str, default=None, help="Apply first parameter set to ALL files in this directory (for timelapse / batch uniform grading)")
     parser.add_argument("--output", type=str, default=None, help="Output directory for graded JPGs")
     parser.add_argument("--config", type=str, default=None, help="Path to config.json")
     parser.add_argument("--quality", type=int, default=None, help="JPEG quality 1-100 (default: 95)")
@@ -896,8 +916,8 @@ Examples:
     overwrite = args.overwrite if args.overwrite is not None else cfg.get("overwrite", False)
     preserve_exif = not args.no_exif if args.no_exif is not None else cfg.get("preserve_exif", True)
 
-    if not raw_dir_raw:
-        parser.error("--raw-dir is required. Provide it as an argument or set 'raw_dir' in config.toml")
+    if not args.uniform_dir and not raw_dir_raw:
+        parser.error("--raw-dir is required (or use --uniform-dir). Provide it as an argument or set 'raw_dir' in config.toml")
     if not output_raw:
         parser.error("--output is required. Provide it as an argument or set 'output_dir' in config.toml")
 
@@ -905,29 +925,56 @@ Examples:
         print("Error: --quality must be between 1 and 100", file=sys.stderr)
         sys.exit(1)
 
-    raw_dir = Path(raw_dir_raw).expanduser().resolve()
+    raw_dir = Path(raw_dir_raw).expanduser().resolve() if raw_dir_raw else None
     output_dir = Path(output_raw).expanduser().resolve()
-
-    if not raw_dir.exists():
-        print(f"❌ RAW directory not found: {raw_dir}", file=sys.stderr)
-        sys.exit(1)
 
     all_params = load_grading_params(args.params_json)
     print(f"📋 Loaded {len(all_params)} grading parameter set(s)")
 
-    tasks = []
-    for p in all_params:
-        filename = p.get("file", "")
-        if not filename:
-            print(f"  ⚠️  Skipping entry with no 'file' field: {p.get('style', '?')}")
-            continue
+    # ── Uniform mode: one param set → all files in directory ────
+    uniform_dir = args.uniform_dir
+    if uniform_dir:
+        uniform_path = Path(uniform_dir).expanduser().resolve()
+        if not uniform_path.exists():
+            print(f"❌ Uniform directory not found: {uniform_path}", file=sys.stderr)
+            sys.exit(1)
+        base_params = all_params[0]
+        base_params.pop("file", None)  # Remove per-file field
+        all_files = find_supported_files(uniform_path)
+        if not all_files:
+            print(f"❌ No supported photo files found in: {uniform_path}")
+            sys.exit(1)
 
-        raw_path = find_raw_file(raw_dir, filename)
-        if raw_path is None:
-            print(f"  ⚠️  RAW file not found: {filename} (in {raw_dir})")
-            continue
+        ext_counts = {}
+        for f in all_files:
+            ext = f.suffix.upper()
+            ext_counts[ext] = ext_counts.get(ext, 0) + 1
+        ext_summary = ", ".join(f"{ext}: {cnt}" for ext, cnt in sorted(ext_counts.items()))
+        print(f"📷 Uniform mode: applying 1 parameter set to {len(all_files)} file(s) ({ext_summary})")
 
-        tasks.append((raw_path, p))
+        tasks = [(f, base_params) for f in all_files]
+    else:
+        # ── Standard mode: per-file parameter matching ──────────
+        if not raw_dir:
+            parser.error("--raw-dir is required. Provide it as an argument or set 'raw_dir' in config.toml")
+
+        if not raw_dir.exists():
+            print(f"❌ RAW directory not found: {raw_dir}", file=sys.stderr)
+            sys.exit(1)
+
+        tasks = []
+        for p in all_params:
+            filename = p.get("file", "")
+            if not filename:
+                print(f"  ⚠️  Skipping entry with no 'file' field: {p.get('style', '?')}")
+                continue
+
+            raw_path = find_raw_file(raw_dir, filename)
+            if raw_path is None:
+                print(f"  ⚠️  RAW file not found: {filename} (in {raw_dir})")
+                continue
+
+            tasks.append((raw_path, p))
 
     if not tasks:
         print("❌ No matching RAW files found for any parameter set.")
@@ -945,7 +992,10 @@ Examples:
 
     size_str = f"{size}px" if size else "full resolution"
     print(f"\n⚙️  Grading: quality={quality}, size={size_str}, workers={workers}")
-    print(f"   RAW dir: {raw_dir}")
+    if uniform_dir:
+        print(f"   Source: {Path(uniform_dir).expanduser().resolve()} (uniform)")
+    else:
+        print(f"   RAW dir: {raw_dir}")
     print(f"   Output:  {output_dir}\n")
 
     total_start = time.monotonic()

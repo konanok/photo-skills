@@ -51,6 +51,14 @@ else
     ALL_OK=false
 fi
 
+if command -v ffmpeg &>/dev/null; then
+    FFMPEG_VER=$(ffmpeg -version 2>&1 | head -1 | awk '{print $3}')
+    echo -e "  ${GREEN}✓${NC} ffmpeg ($FFMPEG_VER)"
+else
+    echo -e "  ${YELLOW}ℹ${NC} ffmpeg — 未安装（converter/assemble.py 视频组装需要，可选）"
+    echo -e "       安装: brew install ffmpeg (macOS) / apt-get install ffmpeg"
+fi
+
 # ── 2. Python dependencies ───────────────────────────────────
 echo ""
 echo -e "${BOLD}[2/4] 检查 Python 依赖${NC}"

@@ -95,6 +95,25 @@ python3 photo-converter/scripts/layout_preview.py ~/Photos/graded \
 python3 photo-converter/scripts/layout_preview.py ~/Photos/graded --grid
 ```
 
+### 7. 制作延时摄影视频（可选）
+
+```bash
+# 步骤 0: 提取延时帧（自动检测等间隔序列，排除散拍照片）
+python3 photo-converter/scripts/find_by_date.py ~/Photos/RAW \
+    --timelapse --copy-to ~/Photos/timelapse
+
+# 步骤 1: 统一调色 —— 一组参数应用到所有帧
+python3 photo-grader/scripts/grade.py grading_params.json \
+    --uniform-dir ~/Photos/timelapse --output ~/Photos/graded
+
+# 步骤 2: 去闪烁 —— 平滑帧间亮度跳变
+python3 photo-converter/scripts/deflicker.py ~/Photos/graded
+
+# 步骤 3: 组装视频 —— JPG 帧序列 → MP4
+python3 photo-converter/scripts/assemble.py ~/Photos/graded \
+    --output ~/Photos/timelapse.mp4 --fps 25
+```
+
 ## 系统要求
 
 | 项目        | 说明                                                                                                       |
@@ -102,6 +121,7 @@ python3 photo-converter/scripts/layout_preview.py ~/Photos/graded --grid
 | **Python**  | 3.8+                                                                                                       |
 | **libraw**  | `brew install libraw`（macOS）/ `apt-get install libraw-dev`（Debian）/ `dnf install LibRaw-devel`（RHEL） |
 | **PyTorch** | 仅 photo-screener 需要，CPU 即可运行 MobileCLIP2-S0                                                        |
+| **FFmpeg**  | 仅 `assemble.py` 需要，用于视频编码。`brew install ffmpeg`（macOS）/ `apt-get install ffmpeg`              |
 | **磁盘**    | MobileCLIP2-S0 模型约 300MB（screener 首次运行时下载）                                                     |
 
 ## 注意事项

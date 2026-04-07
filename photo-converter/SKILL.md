@@ -15,9 +15,11 @@ description: |
   - Find / filter photos by shooting date
   - List all photo files grouped by shooting date
   - Generate layout preview grid from graded photos
+  - Remove flicker from timelapse frame sequences (deflicker)
+  - Assemble sequential JPG frames into MP4 video
 
   Triggers: User mentions converting RAW/NEF/CR2/ARW/RAF/JPG/HEIC to JPG, generating thumbnails,
-  batch processing camera photos, finding photos by date.
+  batch processing camera photos, finding photos by date, deflicker, timelapse video assembly.
 
   Dependencies:
     System: libraw (RedHat: dnf install LibRaw-devel / Debian: apt-get install libraw-dev)
@@ -129,9 +131,9 @@ python3 scripts/convert.py ~/data/RAW ~/data/output/thumbnails --dry-run
 | `--dry-run`   | Preview only                 | off          |
 | `--no-exif`   | Skip EXIF copy               | off          |
 
-### 2. `find_by_date.py` — Find Photo Files by Date
+### 2. `find_by_date.py` — Find Photo Files by Date / Detect Timelapse
 
-Searches for RAW, JPG, and HEIC/HEIF files by EXIF shooting date.
+Searches for RAW, JPG, and HEIC/HEIF files by EXIF shooting date. Also detects timelapse sequences by identifying runs of photos with regular shooting intervals.
 
 ```bash
 # Find by exact date
@@ -146,7 +148,18 @@ python3 scripts/find_by_date.py --date 3月15日 --copy-to ~/data/output/selecte
 
 # List all dates
 python3 scripts/find_by_date.py --list-dates
+
+# Timelapse: detect sequences with regular intervals, exclude casual shots
+python3 scripts/find_by_date.py ~/data/RAW --timelapse
+python3 scripts/find_by_date.py ~/data/RAW --date today --timelapse --copy-to ~/data/timelapse
+python3 scripts/find_by_date.py ~/data/RAW --timelapse --min-sequence 50
 ```
+
+| Option                 | Description                                    | Default |
+| ---------------------- | ---------------------------------------------- | ------- |
+| `--timelapse`          | Detect timelapse sequences (regular intervals) | off     |
+| `--min-sequence`       | Minimum frames to qualify as timelapse         | 30      |
+| `--interval-tolerance` | Interval deviation tolerance (0.5 = ±50%)      | 0.5     |
 
 Supported date formats: `2026-03-15`, `03-15`, `3月15日`, `today`, `yesterday`, `3 days ago`
 
@@ -186,12 +199,3 @@ When the user asks to convert photo files or find photos by date:
 2. **Determine input**: user path or config's `input_dir`
 3. **Run the appropriate script**
 4. **Report results** to the user
-
-### Script Paths
-
-```
-~/.openclaw/workspace-photographer/skills/photo-converter/scripts/convert.py
-~/.openclaw/workspace-photographer/skills/photo-converter/scripts/find_by_date.py
-~/.openclaw/workspace-photographer/skills/photo-converter/scripts/layout_preview.py
-~/.openclaw/workspace-photographer/skills/photo-converter/scripts/setup_deps.sh
-```

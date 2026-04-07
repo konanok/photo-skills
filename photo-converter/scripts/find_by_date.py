@@ -16,6 +16,11 @@ Usage:
     python find_by_date.py --from 2026-03-10 --to 2026-03-15
     python find_by_date.py --date 2026-03-15 --copy-to ~/Downloads/output/session/selected
     python find_by_date.py --list-dates
+
+    # Timelapse detection: find sequences with regular shooting intervals
+    python find_by_date.py ~/Photos/RAW --timelapse
+    python find_by_date.py ~/Photos/RAW --from 06:00 --to 08:00 --timelapse
+    python find_by_date.py ~/Photos/RAW --timelapse --copy-to ~/Photos/timelapse_frames
 """
 
 import argparse
@@ -314,6 +319,110 @@ def parse_date_arg(date_str, reference_year=None):
     raise ValueError(f"无法解析日期: '{date_str}'。支持格式: 2026-03-15, 03-15, 3月15日, today, yesterday, '3 days ago'")
 
 
+# ── Timelapse Sequence Detection ────────────────────────────────
+
+def detect_timelapse_sequences(file_dates, min_sequence=30, interval_tolerance=0.5):
+    """Detect timelapse sequences by finding runs of regular shooting intervals.
+
+    Algorithm:
+      1. Sort files by EXIF datetime
+      2. Compute intervals between consecutive shots
+      3. Scan for runs where the interval stays within median ± tolerance
+      4. Return sequences that have at least `min_sequence` frames
+
+    Args:
+        file_dates: list of (path, datetime) tuples (None datetimes are skipped)
+        min_sequence: minimum number of frames to qualify as a timelapse sequence
+        interval_tolerance: max allowed deviation from median interval (as fraction, e.g. 0.5 = 50%)
+
+    Returns:
+        list of sequences, each a list of (path, datetime) tuples, sorted by time
+    """
+    # Filter out files without EXIF time, sort by datetime
+    timed = [(p, dt) for p, dt in file_dates if dt is not None]
+    timed.sort(key=lambda x: x[1])
+
+    if len(timed) < min_sequence:
+        return []
+
+    # Compute intervals in seconds
+    intervals = []
+    for i in range(1, len(timed)):
+        delta = (timed[i][1] - timed[i - 1][1]).total_seconds()
+        intervals.append(delta)
+
+    # Scan for consistent-interval runs
+    sequences = []
+    i = 0
+    n = len(intervals)
+
+    while i < n:
+        # Start a candidate run from position i
+        # Use a small look-ahead window to estimate the interval
+        window_size = min(10, n - i)
+        if window_size < 2:
+            i += 1
+            continue
+
+        # Get initial interval estimate from first few frames
+        window_intervals = sorted(intervals[i:i + window_size])
+        # Use median of the window
+        median_interval = window_intervals[len(window_intervals) // 2]
+
+        # Skip if interval is too large (> 60s) or too small (< 0.5s)
+        if median_interval < 0.5 or median_interval > 60:
+            i += 1
+            continue
+
+        # Extend the run as long as intervals match
+        lo = median_interval * (1 - interval_tolerance)
+        hi = median_interval * (1 + interval_tolerance)
+
+        run_start = i  # index into intervals array; frame index = run_start
+        j = i
+        while j < n and lo <= intervals[j] <= hi:
+            j += 1
+
+        run_length = j - run_start + 1  # number of frames = intervals + 1
+
+        if run_length >= min_sequence:
+            # Frame indices: run_start to run_start + run_length (inclusive in timed[])
+            seq = timed[run_start:run_start + run_length]
+            sequences.append(seq)
+            i = j  # skip past this sequence
+        else:
+            i += 1
+
+    # Merge overlapping/adjacent sequences
+    if len(sequences) > 1:
+        merged = [sequences[0]]
+        for seq in sequences[1:]:
+            prev = merged[-1]
+            # If this sequence starts before the previous one ends, merge
+            if seq[0][1] <= prev[-1][1]:
+                # Combine and deduplicate
+                combined = {str(p): (p, dt) for p, dt in prev}
+                for p, dt in seq:
+                    combined[str(p)] = (p, dt)
+                merged[-1] = sorted(combined.values(), key=lambda x: x[1])
+            else:
+                merged.append(seq)
+        sequences = merged
+
+    return sequences
+
+
+def _format_interval(seconds):
+    """Format interval in seconds to a human-readable string."""
+    if seconds < 1:
+        return f"{seconds*1000:.0f}ms"
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    minutes = int(seconds) // 60
+    secs = seconds - minutes * 60
+    return f"{minutes}m{secs:.0f}s"
+
+
 # ── Main ────────────────────────────────────────────────────────
 
 def main():
@@ -328,6 +437,11 @@ Examples:
   %(prog)s --date 3月15日 --copy-to ~/Downloads/output/session/selected
   %(prog)s --date 3月15日 --link-to ~/Downloads/output/session/selected
   %(prog)s --list-dates
+
+  # Timelapse: detect sequences with regular shooting intervals
+  %(prog)s ~/Photos/RAW --timelapse
+  %(prog)s ~/Photos/RAW --date today --timelapse --copy-to ~/Photos/timelapse
+  %(prog)s ~/Photos/RAW --timelapse --min-sequence 50
         """,
     )
 
@@ -340,6 +454,11 @@ Examples:
     date_group.add_argument("--to", dest="date_to", type=str, default=None, help="结束日期（含）")
     date_group.add_argument("--list-dates", action="store_true", help="列出所有 RAW 文件的拍照日期")
 
+    timelapse_group = parser.add_argument_group("延时序列检测")
+    timelapse_group.add_argument("--timelapse", action="store_true", help="检测拍摄间隔规律的延时序列（自动排除散拍照片）")
+    timelapse_group.add_argument("--min-sequence", type=int, default=30, help="延时序列最小帧数（默认: 30）")
+    timelapse_group.add_argument("--interval-tolerance", type=float, default=0.5, help="间隔容差比例，如 0.5 = 允许 ±50%% 偏差（默认: 0.5）")
+
     action_group = parser.add_argument_group("输出操作")
     action_group.add_argument("--copy-to", type=str, default=None, help="将匹配的 RAW 文件复制到指定目录")
     action_group.add_argument("--link-to", type=str, default=None, help="将匹配的 RAW 文件创建软链接到指定目录")
@@ -350,8 +469,8 @@ Examples:
 
     args = parser.parse_args()
 
-    if not args.date and not args.date_from and not args.date_to and not args.list_dates:
-        parser.error("请指定 --date、--from/--to 或 --list-dates 之一")
+    if not args.date and not args.date_from and not args.date_to and not args.list_dates and not args.timelapse:
+        parser.error("请指定 --date、--from/--to、--list-dates 或 --timelapse 之一")
 
     cfg = load_config(args.config)
     input_raw = args.input or cfg.get("raw_dir") or cfg.get("input_dir", "~/Downloads/RAW")
@@ -392,6 +511,94 @@ Examples:
     if args.list_dates:
         _print_date_list(file_dates, args.json)
         return
+
+    # ── Timelapse detection mode ─────────────────────────────────
+    if args.timelapse:
+        # Optionally pre-filter by date/time range first
+        if target_date or from_date or to_date:
+            pre_filtered = []
+            for raw_path, dt in file_dates:
+                if dt is None:
+                    continue
+                shot_date = dt.date()
+                if target_date and shot_date != target_date:
+                    continue
+                if from_date and shot_date < from_date:
+                    continue
+                if to_date and shot_date > to_date:
+                    continue
+                pre_filtered.append((raw_path, dt))
+            scan_input = pre_filtered
+        else:
+            scan_input = file_dates
+
+        sequences = detect_timelapse_sequences(
+            scan_input,
+            min_sequence=args.min_sequence,
+            interval_tolerance=args.interval_tolerance,
+        )
+
+        if not sequences:
+            print(f"\n😔 未检测到延时序列（最小帧数: {args.min_sequence}）", file=sys.stderr)
+            timed_count = sum(1 for _, dt in scan_input if dt is not None)
+            print(f"   共分析 {timed_count} 张有 EXIF 时间的照片", file=sys.stderr)
+            sys.exit(1)
+
+        # Report all found sequences
+        total_frames = 0
+        all_matched = []
+        for seq_idx, seq in enumerate(sequences, 1):
+            # Compute interval stats for this sequence
+            seq_intervals = [(seq[i][1] - seq[i - 1][1]).total_seconds() for i in range(1, len(seq))]
+            median_interval = sorted(seq_intervals)[len(seq_intervals) // 2]
+            start_time_str = seq[0][1].strftime("%Y-%m-%d %H:%M:%S")
+            end_time_str = seq[-1][1].strftime("%H:%M:%S")
+            duration = (seq[-1][1] - seq[0][1]).total_seconds()
+
+            print(f"\n🎬 延时序列 #{seq_idx}: {len(seq)} 帧", file=sys.stderr)
+            print(f"   时间: {start_time_str} → {end_time_str} ({_format_interval(duration)})", file=sys.stderr)
+            print(f"   间隔: ~{_format_interval(median_interval)}/帧", file=sys.stderr)
+            print(f"   首帧: {seq[0][0].name}", file=sys.stderr)
+            print(f"   末帧: {seq[-1][0].name}", file=sys.stderr)
+
+            total_frames += len(seq)
+            all_matched.extend(seq)
+
+        # Compute how many were excluded
+        timed_total = sum(1 for _, dt in scan_input if dt is not None)
+        excluded = timed_total - total_frames
+        print(f"\n✅ 共 {len(sequences)} 个延时序列，{total_frames} 帧", file=sys.stderr)
+        if excluded > 0:
+            print(f"   排除散拍照片: {excluded} 张", file=sys.stderr)
+
+        if args.json:
+            result = {
+                "mode": "timelapse",
+                "sequences": [],
+                "total_frames": total_frames,
+                "excluded": excluded,
+                "scan_time_seconds": round(scan_elapsed, 2),
+            }
+            for seq_idx, seq in enumerate(sequences, 1):
+                seq_intervals = [(seq[i][1] - seq[i - 1][1]).total_seconds() for i in range(1, len(seq))]
+                median_interval = sorted(seq_intervals)[len(seq_intervals) // 2]
+                result["sequences"].append({
+                    "index": seq_idx,
+                    "frame_count": len(seq),
+                    "start": seq[0][1].strftime("%Y-%m-%d %H:%M:%S"),
+                    "end": seq[-1][1].strftime("%Y-%m-%d %H:%M:%S"),
+                    "interval_seconds": round(median_interval, 2),
+                    "files": [{"file": p.name, "path": str(p), "datetime": dt.strftime("%Y-%m-%d %H:%M:%S")} for p, dt in seq],
+                })
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+
+        if all_matched and (args.copy_to or args.link_to):
+            dest_dir = Path(args.copy_to or args.link_to).expanduser().resolve()
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            action = "copy" if args.copy_to else "link"
+            _perform_action(all_matched, dest_dir, action)
+
+        sys.exit(0 if all_matched else 1)
 
     matched = []
     no_date = []

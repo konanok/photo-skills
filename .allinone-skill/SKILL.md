@@ -47,18 +47,23 @@ RAW / JPG / HEIC
 
 ### photo-converter
 
-Convert camera photos to JPG thumbnails, find photos by EXIF date, generate layout previews.
+Convert camera photos to JPG thumbnails, find photos by EXIF date, detect timelapse sequences, generate layout previews, deflicker frame sequences, and assemble frames into video.
 
-| Script              | Purpose                                                                          |
-| ------------------- | -------------------------------------------------------------------------------- |
-| `convert.py`        | RAW/JPG/HEIC → JPG thumbnails (parallel, configurable size/quality)              |
-| `find_by_date.py`   | Find photos by EXIF shooting date (supports `3月15日`, `yesterday`, date ranges) |
-| `layout_preview.py` | Side-by-side BEFORE\|AFTER comparison (default) or grid layout                   |
+| Script              | Purpose                                                                   |
+| ------------------- | ------------------------------------------------------------------------- |
+| `convert.py`        | RAW/JPG/HEIC → JPG thumbnails (parallel, configurable size/quality)       |
+| `find_by_date.py`   | Find photos by EXIF date; detect timelapse sequences (`--timelapse`)      |
+| `layout_preview.py` | Side-by-side BEFORE\|AFTER comparison (default) or grid layout            |
+| `deflicker.py`      | Smooth luminance fluctuations in timelapse JPG frame sequences (in-place) |
+| `assemble.py`       | Assemble JPG frames into H.264 MP4 video via FFmpeg                       |
 
 ```bash
 python3 photo-converter/scripts/convert.py <input> <output> [--size 1200] [--quality 85]
 python3 photo-converter/scripts/find_by_date.py --date 2026-03-15
+python3 photo-converter/scripts/find_by_date.py <input> --timelapse [--copy-to <output>]
 python3 photo-converter/scripts/layout_preview.py <graded_dir> --originals <raw_dir>
+python3 photo-converter/scripts/deflicker.py <frames_dir> [--window 11]
+python3 photo-converter/scripts/assemble.py <frames_dir> --output <video.mp4> [--fps 25] [--crf 18]
 ```
 
 ### photo-screener
@@ -90,6 +95,8 @@ sharpening, noise reduction, vignette, film grain.
 
 ```bash
 python3 photo-grader/scripts/grade.py <grading_params.json> --raw-dir <raw_dir> --output <output_dir>
+# Uniform mode: apply one parameter set to ALL files in a directory (timelapse / batch)
+python3 photo-grader/scripts/grade.py <grading_params.json> --uniform-dir <dir> --output <output_dir>
 ```
 
 Key behaviors:
@@ -97,6 +104,7 @@ Key behaviors:
 - Accepts Lightroom-style parameter values — auto-maps to engine-safe values via histogram-aware scaling
 - Cross-format file matching: params say `DSC_0001.NEF`, actual file is `.CR2` → still works
 - RAW files: full 16-bit editing latitude. JPG/HEIC: 8-bit, keep adjustments conservative.
+- `--uniform-dir`: apply first param set to every file in directory (ignores `file` field in JSON)
 
 ## Setup
 
@@ -128,6 +136,7 @@ source .venv/bin/activate
 
 - Python 3.8+
 - libraw — `brew install libraw` (macOS) / `apt-get install libraw-dev` (Debian)
+- FFmpeg — `brew install ffmpeg` (macOS) / `apt-get install ffmpeg` (Debian). Only needed for `assemble.py`
 - PyTorch — screener only, CPU sufficient
 
 ### Config Files
@@ -169,4 +178,23 @@ python3 photo-grader/scripts/grade.py ~/output/grading_params.json \
 # Step 5: Preview
 python3 photo-converter/scripts/layout_preview.py ~/output/graded \
     --originals ~/Photos/RAW --params ~/output/grading_params.json
+```
+
+### Timelapse workflow
+
+```bash
+# Step 1: Detect & extract timelapse frames (exclude casual shots)
+python3 photo-converter/scripts/find_by_date.py ~/Photos/RAW \
+    --timelapse --copy-to ~/output/timelapse_frames
+
+# Step 2: Uniform grade — one parameter set for all frames
+python3 photo-grader/scripts/grade.py ~/output/grading_params.json \
+    --uniform-dir ~/output/timelapse_frames --output ~/output/graded
+
+# Step 3: Deflicker — smooth luminance fluctuations
+python3 photo-converter/scripts/deflicker.py ~/output/graded
+
+# Step 4: Assemble — frames → MP4 video
+python3 photo-converter/scripts/assemble.py ~/output/graded \
+    --output ~/output/timelapse.mp4 --fps 25
 ```

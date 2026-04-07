@@ -60,6 +60,13 @@ else
     fail_ "libraw not installed -> brew install libraw / apt-get install libraw-dev"
 fi
 
+if command -v ffmpeg &>/dev/null; then
+    FFMPEG_VER=$(ffmpeg -version 2>&1 | head -1 | awk '{print $3}')
+    pass "ffmpeg $FFMPEG_VER (converter/assemble.py)"
+else
+    info_ "ffmpeg not installed (optional, needed by assemble.py) -> brew install ffmpeg / apt-get install ffmpeg"
+fi
+
 # === 2. Python Dependencies ===
 echo ""
 echo -e "${BOLD}[2/5] Python packages${NC}"

@@ -95,6 +95,25 @@ python3 photo-converter/scripts/layout_preview.py ~/Photos/graded \
 python3 photo-converter/scripts/layout_preview.py ~/Photos/graded --grid
 ```
 
+### 7. Timelapse workflow (optional)
+
+```bash
+# Step 0: Extract timelapse frames (auto-detect regular-interval sequences, exclude casual shots)
+python3 photo-converter/scripts/find_by_date.py ~/Photos/RAW \
+    --timelapse --copy-to ~/Photos/timelapse
+
+# Step 1: Uniform grade — apply one parameter set to all frames
+python3 photo-grader/scripts/grade.py grading_params.json \
+    --uniform-dir ~/Photos/timelapse --output ~/Photos/graded
+
+# Step 2: Deflicker — smooth luminance fluctuations
+python3 photo-converter/scripts/deflicker.py ~/Photos/graded
+
+# Step 3: Assemble — combine frames into MP4 video
+python3 photo-converter/scripts/assemble.py ~/Photos/graded \
+    --output ~/Photos/timelapse.mp4 --fps 25
+```
+
 ## System Requirements
 
 | Requirement | Details                                                                                                   |
@@ -102,6 +121,7 @@ python3 photo-converter/scripts/layout_preview.py ~/Photos/graded --grid
 | **Python**  | 3.8+                                                                                                      |
 | **libraw**  | `brew install libraw` (macOS) / `apt-get install libraw-dev` (Debian) / `dnf install LibRaw-devel` (RHEL) |
 | **PyTorch** | Required by photo-screener only. CPU is sufficient for MobileCLIP2-S0                                     |
+| **FFmpeg**  | Required by `assemble.py` for video encoding. `brew install ffmpeg` / `apt-get install ffmpeg`            |
 | **Disk**    | ~300MB for MobileCLIP2-S0 model (downloaded on first run of screener)                                     |
 
 ## Important Notes
