@@ -23,6 +23,7 @@ Thumbs.db
 
 # CodeBuddy
 .codebuddy/
+CODEBUDDY.md
 
 # Model cache (large files, downloaded on demand)
 *.pth
@@ -41,3 +42,9 @@ config.json
 # Grading params (user-specific session data)
 grading_params.json
 filter_report.json
+
+# allinone-skill 合并时的备份（运行时生成）
+.allinone-skill/stand-alone-skills/
+
+# 不需要提交的临时文件
+.tmp/

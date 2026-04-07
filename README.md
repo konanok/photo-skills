@@ -144,6 +144,35 @@ photo-skills/
         └── setup_deps.sh
 ```
 
+## Single Skill Mode (Not Recommended)
+
+> **Note**: This mode merges all skills into one. It is provided for platforms that only support a single skill entry point. For normal use, keep the default three-skill setup — it gives each skill its own config and SKILL.md, which is easier to manage and extend.
+
+If you need to use this project as a single skill, run:
+
+```bash
+bash .allinone-skill/merge.sh
+```
+
+This will:
+
+- Remove each sub-skill's `SKILL.md` (backed up to `.allinone-skill/stand-alone-skills/`)
+- Create a top-level `SKILL.md` and `config.example.json` at the project root
+- All scripts will automatically read from the root `config.json` when their sub-skill config is absent
+
+After merging, create and edit the root config:
+
+```bash
+cp config.example.json config.json
+# Edit config.json — set your input/output directories
+```
+
+To revert back to three independent skills:
+
+```bash
+bash .allinone-skill/merge.sh --revert
+```
+
 ## License
 
 MIT

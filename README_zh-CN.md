@@ -144,6 +144,35 @@ photo-skills/
         └── setup_deps.sh
 ```
 
+## 单 Skill 模式（不推荐）
+
+> **说明**：此模式将所有 skill 合并为一个。仅供只支持单 skill 入口的平台使用。日常使用请保持默认的多 skill 模式 —— 每个 skill 有独立的配置和 SKILL.md，更易管理和扩展。
+
+如需将项目作为单个 skill 使用：
+
+```bash
+bash .allinone-skill/merge.sh
+```
+
+执行后会：
+
+- 删除各子 skill 的 `SKILL.md`（备份在 `.allinone-skill/stand-alone-skills/`）
+- 在项目根目录创建统一的 `SKILL.md` 和 `config.example.json`
+- 各脚本在子 skill 配置不存在时，会自动读取根目录的 `config.json`
+
+合并后创建并编辑根配置：
+
+```bash
+cp config.example.json config.json
+# 编辑 config.json —— 设置你的输入/输出目录
+```
+
+还原为多个独立 skill：
+
+```bash
+bash .allinone-skill/merge.sh --revert
+```
+
 ## 许可证
 
 MIT

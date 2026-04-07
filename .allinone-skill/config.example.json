@@ -1,0 +1,19 @@
+{
+    "_comment": "Merged config for single-skill mode. All three skills read from this file.",
+    "input_dir": "~/data/RAW",
+    "raw_dir": "~/data/RAW",
+    "output_dir": null,
+    "size": 1200,
+    "quality": 85,
+    "recursive": false,
+    "overwrite": false,
+    "preserve_exif": true,
+    "workers": null,
+    "max_total_mb": 50,
+    "clip_model": "MobileCLIP2-S0",
+    "clip_pretrained": "dfndr2b",
+    "min_score": 4.0,
+    "sim_threshold": 0.97,
+    "batch_size": 20,
+    "top_k": null
+}

@@ -59,7 +59,12 @@ SUPPORTED_EXTENSIONS = RAW_EXTENSIONS | JPG_EXTENSIONS | HEIC_EXTENSIONS
 # ── Configuration ───────────────────────────────────────────────
 
 _SKILL_DIR = Path(__file__).resolve().parent.parent
-_DEFAULT_CONFIG_PATH = _SKILL_DIR / "config.json"
+_ROOT_DIR = _SKILL_DIR.parent
+_DEFAULT_CONFIG_PATH = (
+    _SKILL_DIR / "config.json"
+    if (_SKILL_DIR / "config.json").exists()
+    else _ROOT_DIR / "config.json"
+)
 
 
 def load_config(config_path=None):

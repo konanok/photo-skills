@@ -93,17 +93,17 @@ python3 scripts/grade.py grading_params.json --no-resize
 python3 scripts/grade.py grading_params.json --dry-run
 ```
 
-| Option        | Description                    | Default     |
-| ------------- | ------------------------------ | ----------- |
-| `params_json` | Grading parameters JSON        | required    |
-| `--raw-dir`   | RAW files directory            | from config |
-| `--output`    | Output directory               | from config |
-| `--quality`   | JPEG quality (1-100)           | 95          |
-| `--size`      | Max output dimension           | full res    |
-| `--workers`   | Parallel workers               | auto (max 8)|
-| `--overwrite` | Overwrite existing files       | off         |
-| `--no-resize` | Full RAW resolution            | off         |
-| `--dry-run`   | Preview only                   | off         |
+| Option        | Description              | Default      |
+| ------------- | ------------------------ | ------------ |
+| `params_json` | Grading parameters JSON  | required     |
+| `--raw-dir`   | RAW files directory      | from config  |
+| `--output`    | Output directory         | from config  |
+| `--quality`   | JPEG quality (1-100)     | 95           |
+| `--size`      | Max output dimension     | full res     |
+| `--workers`   | Parallel workers         | auto (max 8) |
+| `--overwrite` | Overwrite existing files | off          |
+| `--no-resize` | Full RAW resolution      | off          |
+| `--dry-run`   | Preview only             | off          |
 
 ## Color Grading Features
 
@@ -123,6 +123,7 @@ python3 scripts/grade.py grading_params.json --dry-run
 ## Cross-Format Support
 
 The `find_raw_file()` function intelligently matches filenames across camera brands and formats:
+
 - If `grading_params.json` says `DSC_0001.NEF` but the actual file is `DSC_0001.CR2`, it will still be found
 - Also matches JPG and HEIC files: `IMG_0001.HEIC` or `DSC_0001.JPG`
 - Stem-based matching with any supported extension

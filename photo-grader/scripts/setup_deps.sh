@@ -51,10 +51,10 @@ check_python_pkg() {
     fi
 }
 
-check_python_pkg "rawpy"  "rawpy"
-check_python_pkg "PIL"    "pillow"
-check_python_pkg "numpy"  "numpy"
-check_python_pkg "scipy"  "scipy"
+check_python_pkg "rawpy" "rawpy"
+check_python_pkg "PIL" "pillow"
+check_python_pkg "numpy" "numpy"
+check_python_pkg "scipy" "scipy"
 
 # ── 3. Summary & Install ───────────────────────────────────
 echo ""
