@@ -102,10 +102,10 @@ Key behaviors:
 
 ```bash
 # 1. Create config files
-cp photo-converter/config.example.json photo-converter/config.json
-cp photo-grader/config.example.json    photo-grader/config.json
-cp photo-screener/config.example.json  photo-screener/config.json
-# Edit each config.json to set your input/output directories
+cp photo-converter/config.example.toml photo-converter/config.toml
+cp photo-grader/config.example.toml    photo-grader/config.toml
+cp photo-screener/config.example.toml  photo-screener/config.toml
+# Edit each config.toml to set your input/output directories
 
 # 2. Install dependencies
 bash setup.sh
@@ -122,7 +122,7 @@ bash check_env.sh
 
 ### Config Files
 
-Each skill reads defaults from its `config.json`. CLI arguments always override config values.
+Each skill reads defaults from its `config.toml`. CLI arguments always override config values.
 
 | Skill           | Key config fields                                                          |
 | --------------- | -------------------------------------------------------------------------- |

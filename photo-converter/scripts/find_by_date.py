@@ -58,25 +58,30 @@ SUPPORTED_EXTENSIONS = RAW_EXTENSIONS | JPG_EXTENSIONS | HEIC_EXTENSIONS
 
 # ── Configuration ───────────────────────────────────────────────
 
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
+
 _SKILL_DIR = Path(__file__).resolve().parent.parent
 _ROOT_DIR = _SKILL_DIR.parent
 _DEFAULT_CONFIG_PATH = (
-    _SKILL_DIR / "config.json"
-    if (_SKILL_DIR / "config.json").exists()
-    else _ROOT_DIR / "config.json"
+    _SKILL_DIR / "config.toml"
+    if (_SKILL_DIR / "config.toml").exists()
+    else _ROOT_DIR / "config.toml"
 )
 
 
 def load_config(config_path=None):
-    """Load configuration from config.json."""
+    """Load configuration from config.toml."""
     path = Path(config_path or _DEFAULT_CONFIG_PATH).expanduser().resolve()
     if not path.exists():
         return {}
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            cfg = json.load(f)
+        with open(path, "rb") as f:
+            cfg = tomllib.load(f)
         return cfg if isinstance(cfg, dict) else {}
-    except (json.JSONDecodeError, OSError):
+    except Exception:
         return {}
 
 
@@ -349,7 +354,7 @@ Examples:
         parser.error("请指定 --date、--from/--to 或 --list-dates 之一")
 
     cfg = load_config(args.config)
-    input_raw = args.input or cfg.get("input_dir", "~/Downloads/RAW")
+    input_raw = args.input or cfg.get("raw_dir") or cfg.get("input_dir", "~/Downloads/RAW")
     input_path = Path(input_raw).expanduser().resolve()
 
     if not input_path.exists():

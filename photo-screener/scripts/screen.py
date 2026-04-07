@@ -48,29 +48,34 @@ if hasattr(sys.stdout, 'reconfigure'):
 
 # ── Configuration ───────────────────────────────────────────────
 
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
+
 _SKILL_DIR = Path(__file__).resolve().parent.parent
 _ROOT_DIR = _SKILL_DIR.parent
 _DEFAULT_CONFIG_PATH = (
-    _SKILL_DIR / "config.json"
-    if (_SKILL_DIR / "config.json").exists()
-    else _ROOT_DIR / "config.json"
+    _SKILL_DIR / "config.toml"
+    if (_SKILL_DIR / "config.toml").exists()
+    else _ROOT_DIR / "config.toml"
 )
 
 
 def load_config(config_path=None):
-    """Load configuration from config.json."""
+    """Load configuration from config.toml."""
     path = Path(config_path or _DEFAULT_CONFIG_PATH).expanduser().resolve()
     if not path.exists():
         return {}
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            cfg = json.load(f)
+        with open(path, "rb") as f:
+            cfg = tomllib.load(f)
         if not isinstance(cfg, dict):
-            print(f"⚠️  Config is not a JSON object, ignoring: {path}", file=sys.stderr)
+            print(f"⚠️  Config is not a valid mapping, ignoring: {path}", file=sys.stderr)
             return {}
         print(f"📄 Loaded config: {path}")
         return cfg
-    except (json.JSONDecodeError, OSError) as e:
+    except Exception as e:
         print(f"⚠️  Failed to read config ({path}): {e}", file=sys.stderr)
         return {}
 
@@ -743,7 +748,7 @@ Examples:
     )
     parser.add_argument("input_dir", help="Directory containing photos (JPG thumbnails)")
     parser.add_argument("--output", "-o", type=str, default=None, help="Output JSON report path")
-    parser.add_argument("--config", type=str, default=None, help="Path to config.json")
+    parser.add_argument("--config", type=str, default=None, help="Path to config.toml")
     parser.add_argument("--min-score", type=float, default=None, help="Minimum aesthetic score threshold (default: 4.0)")
     parser.add_argument("--sim-threshold", type=float, default=None, help="Cosine similarity threshold for dedup (default: 0.97)")
     parser.add_argument("--batch-size", type=int, default=None, help="Max photos per LLM batch (default: 20)")
@@ -758,13 +763,13 @@ Examples:
 
     clip_model_name = cfg.get("clip_model", "MobileCLIP2-S0")
     clip_pretrained = cfg.get("clip_pretrained", "dfndr2b")
-    min_score = args.min_score if args.min_score is not None else cfg.get("min_score", 4.0)
-    sim_threshold = args.sim_threshold if args.sim_threshold is not None else cfg.get("sim_threshold", 0.97)
-    batch_size = args.batch_size if args.batch_size is not None else cfg.get("batch_size", 20)
-    top_k = args.top_k if args.top_k is not None else cfg.get("top_k")
+    min_score = args.min_score if args.min_score is not None else cfg.get("min_aesthetic_score", 4.0)
+    sim_threshold = args.sim_threshold if args.sim_threshold is not None else cfg.get("dedup_threshold", 0.97)
+    batch_size = args.batch_size if args.batch_size is not None else cfg.get("llm_batch_size", 20)
+    top_k = args.top_k if args.top_k is not None else cfg.get("top_k") or None
     recursive = args.recursive if args.recursive is not None else cfg.get("recursive", False)
 
-    output_json = args.output or cfg.get("output")
+    output_json = args.output or cfg.get("screener_output") or cfg.get("output")
     if not output_json:
         output_json = str(Path(args.input_dir).expanduser().resolve() / "filter_report.json")
 

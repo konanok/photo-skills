@@ -6,7 +6,7 @@
 #
 # 目录结构 .allinone-skill/:
 #   SKILL.md              — 合并版顶层 SKILL.md 模板
-#   config.example.json   — 合并版根目录 config 模板
+#   config.example.toml   — 合并版根目录 config 模板
 #   merge.sh              — 本脚本
 #   stand-alone-skills/   — 合并时自动备份各子 SKILL.md（已 gitignore）
 #
@@ -21,7 +21,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 BACKUP_DIR="$SCRIPT_DIR/stand-alone-skills"
 TEMPLATE_SKILL="$SCRIPT_DIR/SKILL.md"
-TEMPLATE_CONFIG="$SCRIPT_DIR/config.example.json"
+TEMPLATE_CONFIG="$SCRIPT_DIR/config.example.toml"
 DRY_RUN=false
 REVERT=false
 
@@ -108,8 +108,8 @@ if $REVERT; then
         echo -e "${CYAN}🔍 Dry run — would do:${NC}"
         echo ""
         [ -f "$REPO_DIR/SKILL.md" ] && echo "  🗑  Delete SKILL.md" || echo "  ⏭  SKILL.md not found"
-        [ -f "$REPO_DIR/config.example.json" ] && echo "  🗑  Delete config.example.json (root)" || echo "  ⏭  config.example.json (root) not found"
-        [ -f "$REPO_DIR/config.json" ] && echo "  🗑  Delete config.json (root)" || echo "  ⏭  config.json (root) not found"
+        [ -f "$REPO_DIR/config.example.json" ] && echo "  🗑  Delete config.example.json (root, legacy)" || true
+        [ -f "$REPO_DIR/config.json" ] && echo "  🗑  Delete config.json (root, legacy)" || true
         for f in "${BACKED_UP[@]}"; do
             fname="$(basename "$f")"
             # photo-converter-SKILL.md → photo-converter/SKILL.md
@@ -122,7 +122,7 @@ if $REVERT; then
     fi
 
     # Delete top-level files
-    for f in SKILL.md config.example.json config.json; do
+    for f in SKILL.md config.example.toml config.toml config.example.json config.json; do
         if [ -f "$REPO_DIR/$f" ]; then
             rm "$REPO_DIR/$f"
             echo -e "  ${GREEN}✓${NC} Deleted $f"
@@ -170,7 +170,7 @@ if [ ! -f "$TEMPLATE_SKILL" ]; then
     exit 1
 fi
 if [ ! -f "$TEMPLATE_CONFIG" ]; then
-    echo -e "  ${RED}✗${NC} Template not found: .allinone-skill/config.example.json"
+    echo -e "  ${RED}✗${NC} Template not found: .allinone-skill/config.example.toml"
     exit 1
 fi
 
@@ -205,7 +205,7 @@ if $DRY_RUN; then
         echo "  💾 Backup + 🗑 Delete $f"
     done
     echo "  📝 Copy .allinone-skill/SKILL.md → SKILL.md"
-    echo "  📝 Copy .allinone-skill/config.example.json → config.example.json"
+    echo "  📝 Copy .allinone-skill/config.example.toml → config.example.toml"
     echo ""
     exit 0
 fi
@@ -232,10 +232,10 @@ echo -e "${BOLD}[3/4] Creating top-level SKILL.md...${NC}"
 cp "$TEMPLATE_SKILL" "$REPO_DIR/SKILL.md"
 echo -e "  ${GREEN}✓${NC} SKILL.md"
 
-# ── Step 4: Copy root config.example.json ───────────────────
-echo -e "${BOLD}[4/4] Creating root config.example.json...${NC}"
-cp "$TEMPLATE_CONFIG" "$REPO_DIR/config.example.json"
-echo -e "  ${GREEN}✓${NC} config.example.json"
+# ── Step 4: Copy root config.example.toml ───────────────────
+echo -e "${BOLD}[4/4] Creating root config.example.toml...${NC}"
+cp "$TEMPLATE_CONFIG" "$REPO_DIR/config.example.toml"
+echo -e "  ${GREEN}✓${NC} config.example.toml"
 
 # ── Summary ─────────────────────────────────────────────────
 echo ""
@@ -244,8 +244,8 @@ echo -e "  ${GREEN}✅ Merged ${#SUB_SKILLS[@]} skill(s) into one${NC}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo "  Next step:"
-echo "    cp config.example.json config.json"
-echo "    # Edit config.json to set your directories"
+echo "    cp config.example.toml config.toml"
+echo "    # Edit config.toml to set your directories"
 echo ""
 echo "  To revert: bash .allinone-skill/merge.sh --revert"
 echo ""

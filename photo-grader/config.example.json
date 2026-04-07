@@ -1,9 +1,0 @@
-{
-  "raw_dir": "~/data/RAW",
-  "output_dir": null,
-  "quality": 95,
-  "size": null,
-  "overwrite": false,
-  "preserve_exif": true,
-  "workers": null
-}

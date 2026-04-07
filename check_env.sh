@@ -92,19 +92,25 @@ echo ""
 
 check_config() {
     local skill="$1"
-    local config_path="$REPO_DIR/$skill/config.json"
-    local example_path="$REPO_DIR/$skill/config.example.json"
+    local config_toml="$REPO_DIR/$skill/config.toml"
+    local config_json="$REPO_DIR/$skill/config.json"
+    local example_toml="$REPO_DIR/$skill/config.example.toml"
+    local example_json="$REPO_DIR/$skill/config.example.json"
 
-    if [ -f "$config_path" ]; then
-        if python3 -c "import json; json.load(open('$config_path'))" 2>/dev/null; then
+    if [ -f "$config_toml" ]; then
+        pass "$skill/config.toml"
+    elif [ -f "$config_json" ]; then
+        if python3 -c "import json; json.load(open('$config_json'))" 2>/dev/null; then
             pass "$skill/config.json"
         else
             fail_ "$skill/config.json invalid JSON"
         fi
-    elif [ -f "$example_path" ]; then
-        warn_ "$skill/config.json missing -> cp $skill/config.example.json $skill/config.json"
+    elif [ -f "$example_toml" ]; then
+        warn_ "$skill/config.toml missing -> cp $skill/config.example.toml $skill/config.toml"
+    elif [ -f "$example_json" ]; then
+        warn_ "$skill/config missing -> cp $skill/config.example.toml $skill/config.toml (or .json)"
     else
-        fail_ "$skill/config.json and config.example.json both missing"
+        fail_ "$skill/config not found (no config.toml, config.json, or example files)"
     fi
 }
 
@@ -121,20 +127,35 @@ check_config_field() {
     local skill="$1"
     local field="$2"
     local label="$3"
-    local config_path="$REPO_DIR/$skill/config.json"
+    local config_path=""
 
-    if [ ! -f "$config_path" ]; then
+    # Prefer toml, fallback to json
+    if [ -f "$REPO_DIR/$skill/config.toml" ]; then
+        config_path="$REPO_DIR/$skill/config.toml"
+    elif [ -f "$REPO_DIR/$skill/config.json" ]; then
+        config_path="$REPO_DIR/$skill/config.json"
+    else
         return
     fi
 
     local val
     val=$(
         python3 <<PYEOF
-import json
-with open("$config_path") as f:
-    c = json.load(f)
+import sys
+path = "$config_path"
+if path.endswith(".toml"):
+    try:
+        import tomllib
+    except ModuleNotFoundError:
+        import tomli as tomllib
+    with open(path, "rb") as f:
+        c = tomllib.load(f)
+else:
+    import json
+    with open(path) as f:
+        c = json.load(f)
 v = c.get("$field")
-if v is None:
+if v is None or v == "" or v == 0:
     print("__NULL__")
 else:
     print(v)
@@ -214,7 +235,7 @@ else
     echo ""
     echo "  Fix:"
     echo "    bash setup.sh                                     # install deps"
-    echo "    cp <skill>/config.example.json <skill>/config.json  # create config"
+    echo "    cp <skill>/config.example.toml <skill>/config.toml  # create config"
 fi
 echo "======================================================"
 echo ""

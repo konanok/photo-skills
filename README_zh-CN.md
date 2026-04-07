@@ -43,9 +43,9 @@ git clone https://github.com/<your-username>/photo-skills.git
 cd photo-skills
 
 # 从模板创建配置文件
-cp photo-converter/config.example.json photo-converter/config.json
-cp photo-grader/config.example.json    photo-grader/config.json
-cp photo-screener/config.example.json  photo-screener/config.json
+cp photo-converter/config.example.toml photo-converter/config.toml
+cp photo-grader/config.example.toml    photo-grader/config.toml
+cp photo-screener/config.example.toml  photo-screener/config.toml
 
 # 编辑配置 —— 设置你的输入/输出目录
 # 例如 "input_dir": "~/Photos/RAW", "output_dir": "~/Photos/output"
@@ -106,7 +106,7 @@ python3 photo-converter/scripts/layout_preview.py ~/Photos/graded --grid
 
 ## 注意事项
 
-- **先配置再使用**：每个模块需将 `config.example.json` 复制为 `config.json` 并设置目录路径。`config.json` 已加入 gitignore，不会被提交。
+- **先配置再使用**：每个模块需将 `config.example.toml` 复制为 `config.toml` 并设置目录路径。`config.toml` 已加入 gitignore，不会被提交。
 - **RAW vs JPG/HEIC 调色差异**：RAW 文件提供完整 16-bit 编辑空间，调色效果最佳。JPG/HEIC 为 8-bit，曝光调整幅度应更保守。
 - **模型下载**：photo-screener 的 MobileCLIP2-S0 模型（约 300MB）不随仓库分发，首次运行时会提示下载（使用 `hf-mirror.com` 国内加速）。脚本/CI 中可用 `--auto-download` 跳过确认。
 - **跨格式文件匹配**：调色器按文件名主干匹配 —— `grading_params.json` 中写的是 `DSC_0001.NEF`，但实际文件是 `DSC_0001.CR2` 也能正确匹配。
@@ -118,8 +118,12 @@ python3 photo-converter/scripts/layout_preview.py ~/Photos/graded --grid
 photo-skills/
 ├── setup.sh                    # 一键安装所有依赖
 ├── check_env.sh                # 环境健康检查
+├── .allinone-skill/            # 单 skill 合并工具
+│   ├── merge.sh                # 合并 / 还原脚本
+│   ├── SKILL.md                # 合并版 SKILL.md 模板
+│   └── config.example.toml     # 合并版配置模板
 ├── photo-converter/
-│   ├── config.example.json
+│   ├── config.example.toml
 │   ├── requirements.txt
 │   ├── SKILL.md
 │   └── scripts/
@@ -128,15 +132,14 @@ photo-skills/
 │       ├── layout_preview.py   # 调色前后对比 & 宫格预览
 │       └── setup_deps.sh
 ├── photo-grader/
-│   ├── config.example.json
+│   ├── config.example.toml
 │   ├── requirements.txt
 │   ├── SKILL.md
 │   └── scripts/
 │       ├── grade.py            # Lightroom 风格批量调色
-│       ├── compare_mapping_vs_clamp.py  # 参数策略对比诊断工具
 │       └── setup_deps.sh
 └── photo-screener/
-    ├── config.example.json
+    ├── config.example.toml
     ├── requirements.txt
     ├── SKILL.md
     └── scripts/
@@ -157,14 +160,14 @@ bash .allinone-skill/merge.sh
 执行后会：
 
 - 删除各子 skill 的 `SKILL.md`（备份在 `.allinone-skill/stand-alone-skills/`）
-- 在项目根目录创建统一的 `SKILL.md` 和 `config.example.json`
-- 各脚本在子 skill 配置不存在时，会自动读取根目录的 `config.json`
+- 在项目根目录创建统一的 `SKILL.md` 和 `config.example.toml`
+- 各脚本在子 skill 配置不存在时，会自动读取根目录的 `config.toml`
 
 合并后创建并编辑根配置：
 
 ```bash
-cp config.example.json config.json
-# 编辑 config.json —— 设置你的输入/输出目录
+cp config.example.toml config.toml
+# 编辑 config.toml —— 设置你的输入/输出目录
 ```
 
 还原为多个独立 skill：

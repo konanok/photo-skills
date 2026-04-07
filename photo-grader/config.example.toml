@@ -1,0 +1,23 @@
+# photo-grader 配置
+
+# 原始照片目录（RAW/JPG/HEIC 文件所在路径）
+raw_dir = ""
+
+# 调色输出目录
+output_dir = ""
+
+# 输出 JPEG 画质 (1-100)，调色输出建议 95
+jpeg_quality = 95
+
+# 输出图片最大边长（像素），0 = 保持原始分辨率
+# 调色时建议设为 0 或通过 CLI 传 --no-resize
+max_size = 0
+
+# 是否覆盖已存在的输出文件
+overwrite = false
+
+# 是否保留原始照片的 EXIF 元数据
+preserve_exif = true
+
+# 并行工作进程数，0 = 自动（取 CPU 核数，最多 8）
+workers = 0

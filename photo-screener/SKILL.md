@@ -93,20 +93,7 @@ bash ~/.openclaw/workspace-photographer/skills/photo-screener/scripts/setup_deps
 
 ## Configuration
 
-**Config file:** `~/.openclaw/workspace-photographer/skills/photo-screener/config.json`
-
-```json
-{
-  "clip_model": "MobileCLIP2-S0",
-  "clip_pretrained": "dfndr2b",
-  "min_score": 4.0,
-  "sim_threshold": 0.97,
-  "batch_size": 20,
-  "top_k": null,
-  "recursive": false,
-  "output": null
-}
-```
+Copy `config.example.toml` to `config.toml` and edit. See `config.example.toml` for all available options.
 
 ## Usage
 

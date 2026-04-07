@@ -100,29 +100,34 @@ except ImportError:
 
 # ── Configuration ───────────────────────────────────────────────
 
+try:
+    import tomllib  # Python 3.11+
+except ModuleNotFoundError:
+    import tomli as tomllib  # pip install tomli  (Python 3.8-3.10)
+
 _SKILL_DIR = Path(__file__).resolve().parent.parent
 _ROOT_DIR = _SKILL_DIR.parent
 _DEFAULT_CONFIG_PATH = (
-    _SKILL_DIR / "config.json"
-    if (_SKILL_DIR / "config.json").exists()
-    else _ROOT_DIR / "config.json"
+    _SKILL_DIR / "config.toml"
+    if (_SKILL_DIR / "config.toml").exists()
+    else _ROOT_DIR / "config.toml"
 )
 
 
 def load_config(config_path=None):
-    """Load configuration from config.json."""
+    """Load configuration from config.toml."""
     path = Path(config_path or _DEFAULT_CONFIG_PATH).expanduser().resolve()
     if not path.exists():
         return {}
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            cfg = json.load(f)
+        with open(path, "rb") as f:
+            cfg = tomllib.load(f)
         if not isinstance(cfg, dict):
-            print(f"⚠️  Config file is not a JSON object, ignoring: {path}", file=sys.stderr)
+            print(f"⚠️  Config is not a valid mapping, ignoring: {path}", file=sys.stderr)
             return {}
         print(f"📄 Loaded config: {path}")
         return cfg
-    except (json.JSONDecodeError, OSError) as e:
+    except Exception as e:
         print(f"⚠️  Failed to read config ({path}): {e}", file=sys.stderr)
         return {}
 
@@ -347,21 +352,21 @@ Examples:
     # ── Load config and merge ───────────────────────────────────
     cfg = load_config(args.config)
 
-    input_raw = args.input or cfg.get("input_dir")
+    input_raw = args.input or cfg.get("raw_dir") or cfg.get("input_dir")
     if not input_raw:
-        parser.error("input path is required. Provide it as an argument or set 'input_dir' in config.json")
+        parser.error("input path is required. Provide it as an argument or set 'raw_dir' in config.toml")
 
     output_raw = args.output_dir or cfg.get("output_dir")
     if not output_raw:
-        parser.error("output_dir is required. Provide it as an argument or set 'output_dir' in config.json")
+        parser.error("output_dir is required. Provide it as an argument or set 'output_dir' in config.toml")
 
-    size = args.size if args.size is not None else cfg.get("size", 1200)
-    quality = args.quality if args.quality is not None else cfg.get("quality", 85)
+    size = args.size if args.size is not None else cfg.get("max_size", 1200)
+    quality = args.quality if args.quality is not None else cfg.get("jpeg_quality", 85)
     workers = args.workers if args.workers is not None else cfg.get("workers") or get_cpu_count()
     recursive = args.recursive if args.recursive is not None else cfg.get("recursive", False)
     overwrite = args.overwrite if args.overwrite is not None else cfg.get("overwrite", False)
     preserve_exif = not args.no_exif if args.no_exif is not None else cfg.get("preserve_exif", True)
-    max_total_mb = args.max_total_mb if args.max_total_mb is not None else cfg.get("max_total_mb", 50)
+    max_total_mb = args.max_total_mb if args.max_total_mb is not None else cfg.get("thumbnail_budget_mb", 50)
 
     if not 1 <= quality <= 100:
         print("Error: --quality must be between 1 and 100", file=sys.stderr)

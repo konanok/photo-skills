@@ -90,20 +90,7 @@ python3 -c "from pillow_heif import register_heif_opener; print('✓ HEIC/HEIF s
 
 ## Configuration
 
-**Config file:** `~/.openclaw/workspace-photographer/skills/photo-converter/config.json`
-
-```json
-{
-  "input_dir": "~/data/RAW",
-  "output_dir": null,
-  "size": 1200,
-  "quality": 85,
-  "recursive": false,
-  "overwrite": false,
-  "preserve_exif": true,
-  "workers": null
-}
-```
+Copy `config.example.toml` to `config.toml` and edit to set your directories. See `config.example.toml` for all available options.
 
 ## Scripts
 

@@ -1,0 +1,67 @@
+# 合并配置文件 — 单 skill 模式下所有脚本共用
+# 每个脚本在找不到自己子目录的 config.toml 时，会自动读取本文件。
+
+# ── 公共配置 ─────────────────────────────────────────────────
+
+# 原始照片目录（RAW/JPG/HEIC 文件所在路径）
+# converter 和 grader 都会读取此字段
+raw_dir = ""
+
+# 处理结果输出目录
+# converter 输出缩略图、grader 输出调色后的 JPG 到此目录
+output_dir = ""
+
+# 输出 JPEG 画质 (1-100)
+# converter 缩略图建议 85，grader 调色输出建议 95
+# 合并模式下取 95（高质量），converter 可通过 --quality 85 覆盖
+jpeg_quality = 95
+
+# 输出图片最大边长（像素），超过此尺寸会等比缩小
+# 设为 0 表示保持原始分辨率（grader 调色时建议 0 或传 --no-resize）
+max_size = 1200
+
+# 是否递归搜索子目录中的照片
+recursive = false
+
+# 是否覆盖已存在的输出文件
+overwrite = false
+
+# 是否保留原始照片的 EXIF 元数据（拍摄参数、GPS 等）
+preserve_exif = true
+
+# 并行工作进程数，0 = 自动（取 CPU 核数，最多 8）
+workers = 0
+
+# ── photo-converter 专用 ────────────────────────────────────
+
+# LLM 视觉输入的总大小预算（MB）
+# 小于 (预算 / 照片数) 的 JPG/HEIC 文件将直接软链接而非重新编码
+# 设为 0 禁用此优化
+thumbnail_budget_mb = 50
+
+# ── photo-grader 专用 ───────────────────────────────────────
+# grader 调色时建议通过 CLI 传 --no-resize 保持全尺寸输出
+# jpeg_quality = 95 (已在公共配置中设置，与 grader 默认值一致)
+
+# ── photo-screener 专用 ─────────────────────────────────────
+
+# CLIP 模型名称（open_clip 格式）
+clip_model = "MobileCLIP2-S0"
+
+# CLIP 预训练权重标签
+clip_pretrained = "dfndr2b"
+
+# 美学评分最低阈值 (1-10)，低于此分数的照片将被淘汰
+min_aesthetic_score = 4.0
+
+# 余弦相似度去重阈值 (0-1)，高于此值的照片视为重复
+dedup_threshold = 0.97
+
+# 每个 LLM 批次最大照片数
+llm_batch_size = 20
+
+# 只保留评分最高的 N 张照片，0 = 保留全部
+top_k = 0
+
+# 筛选报告输出路径，空字符串 = 自动（input_dir/filter_report.json）
+screener_output = ""

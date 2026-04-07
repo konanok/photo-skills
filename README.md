@@ -43,12 +43,12 @@ git clone https://github.com/<your-username>/photo-skills.git
 cd photo-skills
 
 # Create config files from templates
-cp photo-converter/config.example.json photo-converter/config.json
-cp photo-grader/config.example.json    photo-grader/config.json
-cp photo-screener/config.example.json  photo-screener/config.json
+cp photo-converter/config.example.toml photo-converter/config.toml
+cp photo-grader/config.example.toml    photo-grader/config.toml
+cp photo-screener/config.example.toml  photo-screener/config.toml
 
 # Edit configs — set your input/output directories
-# e.g. "input_dir": "~/Photos/RAW", "output_dir": "~/Photos/output"
+# e.g. input_dir = "~/Photos/RAW"
 ```
 
 ### 2. Install dependencies
@@ -106,7 +106,7 @@ python3 photo-converter/scripts/layout_preview.py ~/Photos/graded --grid
 
 ## Important Notes
 
-- **Config before use**: Copy `config.example.json` to `config.json` for each skill and set your directories. Config files are gitignored.
+- **Config before use**: Copy `config.example.toml` to `config.toml` for each skill and set your directories. Config files are gitignored.
 - **RAW vs JPG/HEIC grading**: RAW files provide full 16-bit editing latitude. JPG/HEIC are 8-bit — keep exposure adjustments conservative.
 - **Model download**: photo-screener's MobileCLIP2-S0 (~300MB) is not bundled. It downloads on first run with user confirmation (uses `hf-mirror.com` for China acceleration). Use `--auto-download` in scripts/CI.
 - **Cross-format matching**: The grader matches files by stem name — if your `grading_params.json` says `DSC_0001.NEF` but the file is `DSC_0001.CR2`, it still works.
@@ -118,8 +118,12 @@ python3 photo-converter/scripts/layout_preview.py ~/Photos/graded --grid
 photo-skills/
 ├── setup.sh                    # Install all dependencies
 ├── check_env.sh                # Check environment health
+├── .allinone-skill/            # Single-skill merge tooling
+│   ├── merge.sh                # Merge / revert script
+│   ├── SKILL.md                # Merged SKILL.md template
+│   └── config.example.toml     # Merged config template
 ├── photo-converter/
-│   ├── config.example.json
+│   ├── config.example.toml
 │   ├── requirements.txt
 │   ├── SKILL.md
 │   └── scripts/
@@ -128,15 +132,14 @@ photo-skills/
 │       ├── layout_preview.py   # Before/after & grid previews
 │       └── setup_deps.sh
 ├── photo-grader/
-│   ├── config.example.json
+│   ├── config.example.toml
 │   ├── requirements.txt
 │   ├── SKILL.md
 │   └── scripts/
 │       ├── grade.py            # Lightroom-style color grading
-│       ├── compare_mapping_vs_clamp.py  # Diagnostic tool
 │       └── setup_deps.sh
 └── photo-screener/
-    ├── config.example.json
+    ├── config.example.toml
     ├── requirements.txt
     ├── SKILL.md
     └── scripts/
@@ -157,14 +160,14 @@ bash .allinone-skill/merge.sh
 This will:
 
 - Remove each sub-skill's `SKILL.md` (backed up to `.allinone-skill/stand-alone-skills/`)
-- Create a top-level `SKILL.md` and `config.example.json` at the project root
-- All scripts will automatically read from the root `config.json` when their sub-skill config is absent
+- Create a top-level `SKILL.md` and `config.example.toml` at the project root
+- All scripts will automatically read from the root `config.toml` when their sub-skill config is absent
 
 After merging, create and edit the root config:
 
 ```bash
-cp config.example.json config.json
-# Edit config.json — set your input/output directories
+cp config.example.toml config.toml
+# Edit config.toml — set your input/output directories
 ```
 
 To revert back to three independent skills:

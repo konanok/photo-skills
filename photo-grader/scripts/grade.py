@@ -58,29 +58,34 @@ except ImportError:
 
 # ── Configuration ───────────────────────────────────────────────
 
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
+
 _SKILL_DIR = Path(__file__).resolve().parent.parent
 _ROOT_DIR = _SKILL_DIR.parent
 _DEFAULT_CONFIG_PATH = (
-    _SKILL_DIR / "config.json"
-    if (_SKILL_DIR / "config.json").exists()
-    else _ROOT_DIR / "config.json"
+    _SKILL_DIR / "config.toml"
+    if (_SKILL_DIR / "config.toml").exists()
+    else _ROOT_DIR / "config.toml"
 )
 
 
 def load_config(config_path=None):
-    """Load configuration from config.json."""
+    """Load configuration from config.toml."""
     path = Path(config_path or _DEFAULT_CONFIG_PATH).expanduser().resolve()
     if not path.exists():
         return {}
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            cfg = json.load(f)
+        with open(path, "rb") as f:
+            cfg = tomllib.load(f)
         if not isinstance(cfg, dict):
-            print(f"⚠️  Config is not a JSON object, ignoring: {path}", file=sys.stderr)
+            print(f"⚠️  Config is not a valid mapping, ignoring: {path}", file=sys.stderr)
             return {}
         print(f"📄 Loaded config: {path}")
         return cfg
-    except (json.JSONDecodeError, OSError) as e:
+    except Exception as e:
         print(f"⚠️  Failed to read config ({path}): {e}", file=sys.stderr)
         return {}
 
@@ -883,19 +888,18 @@ Examples:
 
     cfg = load_config(args.config)
 
-    # Support both old 'nef_dir' and new 'raw_dir' config keys
     raw_dir_raw = args.raw_dir or cfg.get("raw_dir") or cfg.get("nef_dir")
     output_raw = args.output or cfg.get("output_dir")
-    quality = args.quality if args.quality is not None else cfg.get("quality", 95)
-    size = None if args.no_resize else (args.size if args.size is not None else cfg.get("size"))
+    quality = args.quality if args.quality is not None else cfg.get("jpeg_quality", 95)
+    size = None if args.no_resize else (args.size if args.size is not None else cfg.get("max_size") or None)
     workers = args.workers if args.workers is not None else cfg.get("workers") or get_cpu_count()
     overwrite = args.overwrite if args.overwrite is not None else cfg.get("overwrite", False)
     preserve_exif = not args.no_exif if args.no_exif is not None else cfg.get("preserve_exif", True)
 
     if not raw_dir_raw:
-        parser.error("--raw-dir is required. Provide it as an argument or set 'raw_dir' in config.json")
+        parser.error("--raw-dir is required. Provide it as an argument or set 'raw_dir' in config.toml")
     if not output_raw:
-        parser.error("--output is required. Provide it as an argument or set 'output_dir' in config.json")
+        parser.error("--output is required. Provide it as an argument or set 'output_dir' in config.toml")
 
     if not 1 <= quality <= 100:
         print("Error: --quality must be between 1 and 100", file=sys.stderr)

@@ -65,19 +65,7 @@ pip3 install -r photo-grader/requirements.txt
 
 ## Configuration
 
-**Config file:** `~/.openclaw/workspace-photographer/skills/photo-grader/config.json`
-
-```json
-{
-  "raw_dir": "~/data/RAW",
-  "output_dir": null,
-  "quality": 95,
-  "size": null,
-  "overwrite": false,
-  "preserve_exif": true,
-  "workers": null
-}
-```
+Copy `config.example.toml` to `config.toml` and edit to set your directories. See `config.example.toml` for all available options.
 
 ## Usage
 
