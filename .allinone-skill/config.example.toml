@@ -4,24 +4,24 @@
 # ── 公共配置 ─────────────────────────────────────────────────
 
 # 原始照片目录（RAW/JPG/HEIC 文件所在路径）
-# converter 和 grader 都会读取此字段
+# toolkit 和 grader 都会读取此字段
 raw_dir = ""
 
 # 处理结果输出目录
-# converter 输出缩略图、grader 输出调色后的 JPG 到此目录
+# toolkit 输出缩略图、grader 输出调色后的 JPG 到此目录
 output_dir = ""
 
 # 输出 JPEG 画质 (1-100)
-# converter 缩略图建议 85，grader 调色输出建议 95
-# 合并模式下取 95（高质量），converter 可通过 --quality 85 覆盖
+# toolkit 缩略图建议 85，grader 调色输出建议 95
+# 合并模式下取 95（高质量），toolkit 可通过 --quality 85 覆盖
 jpeg_quality = 95
 
 # 输出图片最大边长（像素），超过此尺寸会等比缩小
 # 设为 0 表示保持原始分辨率（grader 调色时建议 0 或传 --no-resize）
 max_size = 1200
 
-# 是否递归搜索子目录中的照片
-recursive = false
+# 是否递归搜索子目录中的照片（相机上传通常是多层目录，建议开启）
+recursive = true
 
 # 是否覆盖已存在的输出文件
 overwrite = false
@@ -32,7 +32,7 @@ preserve_exif = true
 # 并行工作进程数，0 = 自动（取 CPU 核数，最多 8）
 workers = 0
 
-# ── photo-converter 专用 ────────────────────────────────────
+# ── photo-toolkit 专用 ────────────────────────────────────
 
 # LLM 视觉输入的总大小预算（MB）
 # 小于 (预算 / 照片数) 的 JPG/HEIC 文件将直接软链接而非重新编码
@@ -42,6 +42,21 @@ thumbnail_budget_mb = 50
 # ── photo-grader 专用 ───────────────────────────────────────
 # grader 调色时建议通过 CLI 传 --no-resize 保持全尺寸输出
 # jpeg_quality = 95 (已在公共配置中设置，与 grader 默认值一致)
+
+# RawTherapee CLI 路径（空字符串自动从 PATH 查找 rawtherapee-cli）
+rawtherapee_cli = ""
+
+# 快速导出模式 (-f)：跳过不需要的处理模块加速渲染
+fast_export = false
+
+# 输出位深：8 或 16 (TIFF/PNG 有效；JPEG 固定 8-bit)
+output_bpp = 8
+
+# 是否启用镜头校正 (lensfun)
+lens_correction = true
+
+# 是否使用 Auto-Matched Camera Profile (匹配机内 JPEG 风格)
+auto_matched_curve = true
 
 # ── photo-screener 专用 ─────────────────────────────────────
 

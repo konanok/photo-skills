@@ -61,6 +61,7 @@ NC='\033[0m'
 
 # ── Auto-detect sub skills ──────────────────────────────────
 # Scan for */SKILL.md in repo root (one level deep, skip hidden dirs)
+# Excludes: openclaw-photo-agents-creator (setup tool, not a photo skill)
 find_sub_skills() {
     local skills=()
     for d in "$REPO_DIR"/*/; do
@@ -68,6 +69,8 @@ find_sub_skills() {
         dir_name="$(basename "$d")"
         # Skip hidden directories
         [[ "$dir_name" == .* ]] && continue
+        # Skip setup/tools directories (not photo processing skills)
+        [[ "$dir_name" == "openclaw-photo-agents-creator" ]] && continue
         if [ -f "$d/SKILL.md" ]; then
             skills+=("${dir_name}/SKILL.md")
         fi
@@ -112,7 +115,7 @@ if $REVERT; then
         [ -f "$REPO_DIR/config.json" ] && echo "  🗑  Delete config.json (root, legacy)" || true
         for f in "${BACKED_UP[@]}"; do
             fname="$(basename "$f")"
-            # photo-converter-SKILL.md → photo-converter/SKILL.md
+            # photo-toolkit-SKILL.md → photo-toolkit/SKILL.md
             skill="${fname%-SKILL.md}"
             echo "  ♻️  Restore ${skill}/SKILL.md"
         done
@@ -199,7 +202,7 @@ done
 echo ""
 
 if $DRY_RUN; then
-    echo -e "${CYAN}🔍 Dry run — would do:${NC}"
+    echo -e "${CYAN}��� Dry run — would do:${NC}"
     echo ""
     for f in "${SUB_SKILLS[@]}"; do
         echo "  💾 Backup + 🗑 Delete $f"

@@ -6,11 +6,11 @@
 
 ## 功能介绍
 
-| 模块                | 功能                                                                                      |
-| ------------------- | ----------------------------------------------------------------------------------------- |
-| **photo-converter** | 将相机 RAW/JPG/HEIC 文件转换为 JPG 缩略图，按 EXIF 拍摄日期查找照片，生成调色前后对比预览 |
-| **photo-screener**  | 基于 MobileCLIP2-S0 的 AI 智能筛片 —— 美学评分（1-10 分）、连拍去重、14 类场景自动分类    |
-| **photo-grader**    | Lightroom 风格批量调色（曝光、对比度、HSL、色调曲线、色彩分级、锐化等），由 JSON 参数驱动 |
+| 模块               | 功能                                                                                                      |
+| ------------------ | --------------------------------------------------------------------------------------------------------- |
+| **photo-toolkit**  | 摄影工具集：RAW/JPG/HEIC 转缩略图、按 EXIF 日期查找照片、调色前后对比预览、延时去闪烁与视频组装           |
+| **photo-screener** | 基于 MobileCLIP2-S0 的 AI 智能筛片 —— 美学评分（1-10 分）、连拍去重、14 类场景自动分类                    |
+| **photo-grader**   | 通过 RawTherapee CLI 进行专业级批量调色（曝光、对比度、HSL、色调曲线等），由 Lightroom 风格 JSON 参数驱动 |
 
 ### 处理流程
 
@@ -43,7 +43,7 @@ git clone https://github.com/<your-username>/photo-skills.git
 cd photo-skills
 
 # 从模板创建配置文件
-cp photo-converter/config.example.toml photo-converter/config.toml
+cp photo-toolkit/config.example.toml photo-toolkit/config.toml
 cp photo-grader/config.example.toml    photo-grader/config.toml
 cp photo-screener/config.example.toml  photo-screener/config.toml
 
@@ -54,32 +54,47 @@ cp photo-screener/config.example.toml  photo-screener/config.toml
 ### 2. 安装依赖
 
 ```bash
-# 一键安装所有依赖（交互式，覆盖三个模块）
-bash setup.sh
-
-# 或仅检查环境状态（不安装）
-bash check_env.sh
+# 每个模块有独立的依赖检查+安装脚本（交互式）
+bash photo-toolkit/scripts/setup_deps.sh
+bash photo-screener/scripts/setup_deps.sh
+bash photo-grader/scripts/setup_deps.sh
 ```
 
 ### 3. 转换照片为缩略图
 
 ```bash
-python3 photo-converter/scripts/convert.py ~/Photos/RAW ~/Photos/thumbnails \
+# 默认：缩略图输出到 {input}/thumbnails/
+python3 photo-toolkit/scripts/convert.py ~/Photos/RAW \
     --size 1200 --quality 85
+
+# 或指定输出目录
+python3 photo-toolkit/scripts/convert.py ~/Photos/RAW ~/Photos/thumbnails
+
+# 从 find_by_date 输出管道传入
+python3 photo-toolkit/scripts/find_by_date.py --date today ~/Photos/RAW | \
+    python3 photo-toolkit/scripts/convert.py --from-stdin
 ```
 
 ### 4. AI 筛片（可选，大批量时推荐）
 
 ```bash
-python3 photo-screener/scripts/screen.py ~/Photos/thumbnails \
+python3 photo-screener/scripts/screen.py ~/Photos/RAW/thumbnails \
     --min-score 4.0 --auto-download
 # 输出 filter_report.json，包含评分、场景标签和 LLM 分批信息
+
+# 或通过 --paths 传入指定文件
+python3 photo-screener/scripts/screen.py \
+    --paths ~/Photos/RAW/001/thumbnails/DSC_0001.jpg ~/Photos/RAW/001/thumbnails/DSC_0002.jpg
 ```
 
 ### 5. 批量调色
 
 ```bash
-# 准备 grading_params.json（通过 LLM 生成或手动编写）
+# grading_params.json 使用绝对路径时，无需 --raw-dir
+python3 photo-grader/scripts/grade.py grading_params.json \
+    --output ~/Photos/graded
+
+# params 中为相对文件名时，需要 --raw-dir
 python3 photo-grader/scripts/grade.py grading_params.json \
     --raw-dir ~/Photos/RAW --output ~/Photos/graded
 ```
@@ -88,46 +103,54 @@ python3 photo-grader/scripts/grade.py grading_params.json \
 
 ```bash
 # 调色前后并排对比（默认模式）
-python3 photo-converter/scripts/layout_preview.py ~/Photos/graded \
+# grading_params.json 使用绝对路径时，无需 --originals
+python3 photo-toolkit/scripts/layout_preview.py ~/Photos/graded \
+    --params grading_params.json
+
+# 或指定 originals 目录
+python3 photo-toolkit/scripts/layout_preview.py ~/Photos/graded \
     --originals ~/Photos/RAW --params grading_params.json
 
 # 宫格模式
-python3 photo-converter/scripts/layout_preview.py ~/Photos/graded --grid
+python3 photo-toolkit/scripts/layout_preview.py ~/Photos/graded --grid
 ```
 
 ### 7. 制作延时摄影视频（可选）
 
 ```bash
-# 步骤 0: 提取延时帧（自动检测等间隔序列，排除散拍照片）
-python3 photo-converter/scripts/find_by_date.py ~/Photos/RAW \
-    --timelapse --copy-to ~/Photos/timelapse
+# 步骤 0: 查找延时帧（输出 JSON 路径列表）
+python3 photo-toolkit/scripts/find_by_date.py ~/Photos/RAW \
+    --timelapse --output ~/Photos/timelapse_found.json
 
 # 步骤 1: 统一调色 —— 一组参数应用到所有帧
 python3 photo-grader/scripts/grade.py grading_params.json \
     --uniform-dir ~/Photos/timelapse --output ~/Photos/graded
 
 # 步骤 2: 去闪烁 —— 平滑帧间亮度跳变
-python3 photo-converter/scripts/deflicker.py ~/Photos/graded
+python3 photo-toolkit/scripts/deflicker.py ~/Photos/graded
 
 # 步骤 3: 组装视频 —— JPG 帧序列 → MP4
-python3 photo-converter/scripts/assemble.py ~/Photos/graded \
+python3 photo-toolkit/scripts/assemble.py ~/Photos/graded \
     --output ~/Photos/timelapse.mp4 --fps 25
 ```
 
 ## 系统要求
 
-| 项目        | 说明                                                                                                       |
-| ----------- | ---------------------------------------------------------------------------------------------------------- |
-| **Python**  | 3.8+                                                                                                       |
-| **libraw**  | `brew install libraw`（macOS）/ `apt-get install libraw-dev`（Debian）/ `dnf install LibRaw-devel`（RHEL） |
-| **PyTorch** | 仅 photo-screener 需要，CPU 即可运行 MobileCLIP2-S0                                                        |
-| **FFmpeg**  | 仅 `assemble.py` 需要，用于视频编码。`brew install ffmpeg`（macOS）/ `apt-get install ffmpeg`              |
-| **磁盘**    | MobileCLIP2-S0 模型约 300MB（screener 首次运行时下载）                                                     |
+| 项目            | 说明                                                                                                   |
+| --------------- | ------------------------------------------------------------------------------------------------------ |
+| **Python**      | 3.8+                                                                                                   |
+| **RawTherapee** | `brew install --cask rawtherapee`（macOS）/ `apt install rawtherapee-cli`（Debian）。photo-grader 必需 |
+| **libraw**      | `brew install libraw`（macOS）/ `apt-get install libraw-dev`（Debian）。photo-toolkit 需要             |
+| **PyTorch**     | 仅 photo-screener 需要，CPU 即可运行 MobileCLIP2-S0                                                    |
+| **FFmpeg**      | 仅 `assemble.py` 需要，用于视频编码。`brew install ffmpeg`（macOS）/ `apt-get install ffmpeg`          |
+| **磁盘**        | MobileCLIP2-S0 模型约 300MB（screener 首次运行时下载）                                                 |
 
 ## 注意事项
 
 - **先配置再使用**：每个模块需将 `config.example.toml` 复制为 `config.toml` 并设置目录路径。`config.toml` 已加入 gitignore，不会被提交。
+- **缩略图在 RAW 旁边**：`convert.py` 默认将缩略图输出到 `{input}/thumbnails/`，与原片同目录。
 - **RAW vs JPG/HEIC 调色差异**：RAW 文件提供完整 16-bit 编辑空间，调色效果最佳。JPG/HEIC 为 8-bit，曝光调整幅度应更保守。
+- **绝对路径参数**：`grading_params.json` 的 `file` 字段使用绝对路径时，`grade.py` 无需 `--raw-dir`，`layout_preview.py` 无需 `--originals`。
 - **模型下载**：photo-screener 的 MobileCLIP2-S0 模型（约 300MB）不随仓库分发，首次运行时会提示下载（使用 `hf-mirror.com` 国内加速）。脚本/CI 中可用 `--auto-download` 跳过确认。
 - **跨格式文件匹配**：调色器按文件名主干匹配 —— `grading_params.json` 中写的是 `DSC_0001.NEF`，但实际文件是 `DSC_0001.CR2` 也能正确匹配。
 - **所有脚本支持 `--dry-run`**：预览操作内容，不实际执行。
@@ -136,13 +159,11 @@ python3 photo-converter/scripts/assemble.py ~/Photos/graded \
 
 ```
 photo-skills/
-├── setup.sh                    # 一键安装所有依赖
-├── check_env.sh                # 环境健康检查
 ├── .allinone-skill/            # 单 skill 合并工具
 │   ├── merge.sh                # 合并 / 还原脚本
 │   ├── SKILL.md                # 合并版 SKILL.md 模板
 │   └── config.example.toml     # 合并版配置模板
-├── photo-converter/
+├── photo-toolkit/
 │   ├── config.example.toml
 │   ├── requirements.txt
 │   ├── SKILL.md
@@ -167,6 +188,10 @@ photo-skills/
         └── setup_deps.sh
 ```
 
+## 快速创建 OpenClaw Agent
+
+详细说明请查看 [openclaw-photo-agents-creator/README.md](openclaw-photo-agents-creator/README.md)。
+
 ## 单 Skill 模式（不推荐）
 
 > **说明**：此模式将所有 skill 合并为一个。仅供只支持单 skill 入口的平台使用。日常使用请保持默认的多 skill 模式 —— 每个 skill 有独立的配置和 SKILL.md，更易管理和扩展。
@@ -182,6 +207,7 @@ bash .allinone-skill/merge.sh
 - 删除各子 skill 的 `SKILL.md`（备份在 `.allinone-skill/stand-alone-skills/`）
 - 在项目根目录创建统一的 `SKILL.md` 和 `config.example.toml`
 - 各脚本在子 skill 配置不存在时，会自动读取根目录的 `config.toml`
+- **注意**：`openclaw-photo-agents-creator/` 不参与合并（它是部署工具，不是照片处理 skill）
 
 合并后创建并编辑根配置：
 

@@ -128,11 +128,42 @@ fi
 echo ""
 echo "🔍 检查美学评分模型..."
 AESTHETIC_PATH="$HOME/.cache/photo-filter/aesthetic_sac_logos_ava1_l14_linearMSE.pth"
+AESTHETIC_URL="https://github.com/christophschuhmann/improved-aesthetic-predictor/raw/main/sac+logos+ava1-l14-linearMSE.pth"
+
 if [ -f "$AESTHETIC_PATH" ]; then
     SIZE_KB=$(($(stat -f%z "$AESTHETIC_PATH" 2>/dev/null || stat -c%s "$AESTHETIC_PATH" 2>/dev/null || echo 0) / 1024))
     echo -e "  ${GREEN}✓${NC} 美学评分权重 (${SIZE_KB}KB)"
 else
-    echo -e "  ${CYAN}ℹ${NC} 美学评分权重将在首次运行时自动下载 (~3MB)"
+    echo -e "  ${CYAN}ℹ${NC} 美学评分权重未下载 (~3MB)"
+    echo ""
+    read -r -p "是否现在下载美学评分模型？[Y/n] " answer
+    answer=${answer:-Y}
+    if [[ "$answer" =~ ^[Yy]$ ]]; then
+        echo ""
+        echo "📥 下载美学评分模型..."
+        mkdir -p "$HOME/.cache/photo-filter"
+        TEMP_PATH="${AESTHETIC_PATH}.downloading"
+
+        # Support resume via curl -C (auto-resume)
+        if command -v curl &>/dev/null; then
+            curl -L -# -C - -o "$TEMP_PATH" "$AESTHETIC_URL"
+        elif command -v wget &>/dev/null; then
+            wget -c --show-progress -O "$TEMP_PATH" "$AESTHETIC_URL"
+        else
+            echo -e "  ${RED}✗${NC} 未找到 curl 或 wget，无法下载"
+            echo "  请手动下载: $AESTHETIC_URL"
+            echo "  保存到: $AESTHETIC_PATH"
+            TEMP_PATH=""
+        fi
+
+        if [ -n "$TEMP_PATH" ] && [ -f "$TEMP_PATH" ]; then
+            mv "$TEMP_PATH" "$AESTHETIC_PATH"
+            SIZE_KB=$(($(stat -f%z "$AESTHETIC_PATH" 2>/dev/null || stat -c%s "$AESTHETIC_PATH" 2>/dev/null || echo 0) / 1024))
+            echo -e "  ${GREEN}✓${NC} 美学评分权重已下载 (${SIZE_KB}KB)"
+        fi
+    else
+        echo "  跳过。首次运行脚本时会自动下载。"
+    fi
 fi
 
 # ── 5. Summary ──────────────────────────────────────────────

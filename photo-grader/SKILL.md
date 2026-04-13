@@ -1,12 +1,9 @@
 ---
 name: photo-grader
 description: |
-  Apply Lightroom-style color grading to camera RAW files, JPG photos, and Apple HEIC/HEIF images
-  using AI-generated parameters. Supports all major camera brands: Nikon (NEF), Canon (CR2/CR3),
-  Sony (ARW), Fujifilm (RAF), Olympus (ORF), Panasonic (RW2), Pentax (PEF), Samsung (SRW),
-  Leica (DNG), Adobe (DNG), Hasselblad (3FR), Phase One (IIQ), Sigma (X3F),
-  plus standard JPEG (.jpg/.jpeg) and Apple HEIC/HEIF (.heic/.heif).
-  Note: RAW files provide full 16-bit editing latitude; JPG/HEIC are 8-bit with limited range.
+  Apply professional-grade color grading to camera RAW/JPG/HEIC photos.
+  Uses RawTherapee CLI as the sole processing engine.
+  Driven by LLM-generated Lightroom-style parameters.
 
   Use when the user wants to:
   - Apply color grading / post-processing to camera RAW/JPG/HEIC files
@@ -14,33 +11,47 @@ description: |
   - Process a set of photo files with AI-recommended color parameters
   - Export color-graded JPGs from RAW/JPG/HEIC files
   - Apply uniform grading to all files in a directory (timelapse / batch mode)
+  - Generate RawTherapee PP3 sidecar files for manual inspection
 
   Triggers: User mentions color grading RAW files, applying Lightroom parameters,
   post-processing camera RAW photos, grading photos based on AI recommendations,
   or uniform grading for timelapse sequences.
 
   Dependencies:
-    System: libraw (RedHat: dnf install LibRaw-devel / Debian: apt-get install libraw-dev)
-    Python: rawpy, pillow, numpy, scipy
+    RawTherapee CLI: brew install --cask rawtherapee (macOS) / apt install rawtherapee-cli (Debian)
     Check: bash scripts/setup_deps.sh
 
   Workflow:
-  1. Use `photo-converter` to generate thumbnails
+  1. Use `photo-toolkit` to generate thumbnails
   2. Use multimodal LLM with photo curator prompt to generate grading parameters
   3. Save LLM's JSON output as `grading_params.json`
-  4. Run `grade.py` to batch-apply grading
+  4. Run `grade.py` to batch-apply grading via RawTherapee
 
   ⚠️ IMPORTANT: Use photo_curator_prompt.md V3 (NOT v1/v2). V3 uses Lightroom-standard params with auto-mapping.
 ---
 
 # Photo Grader
 
-Apply Lightroom-style color grading to camera RAW files, driven by JSON parameters.
+Apply professional-grade color grading to camera photos via RawTherapee CLI, driven by JSON parameters.
+
+## Engine
+
+**RawTherapee CLI** is the sole processing engine, providing:
+
+| Feature          | RawTherapee                          |
+| ---------------- | ------------------------------------ |
+| Demosaicing      | Multi-algorithm (AMAZE, IGT, etc.)   |
+| Sharpening       | RL Deconvolution (Richardson-Lucy)   |
+| Noise Reduction  | IWT / astronomy denoise              |
+| Lens Correction  | **lensfun auto**                     |
+| Color Management | ProPhoto internal pipeline           |
+| Camera Matching  | **Auto-Matched Curve (~50 cameras)** |
+| Output Quality   | **Professional**                     |
 
 ## Supported Formats
 
-All RAW formats supported by LibRaw: NEF, CR2, CR3, ARW, RAF, ORF, RW2, DNG, PEF, SRW, 3FR, IIQ, X3F, etc.
-Plus: JPEG (.jpg/.jpeg) and Apple HEIC/HEIF (.heic/.heif, requires `pillow-heif`).
+All RAW formats: NEF, CR2, CR3, ARW, RAF, ORF, RW2, DNG, PEF, SRW, 3FR, IIQ, X3F, etc.
+Plus: JPEG (.jpg/.jpeg) and Apple HEIC/HEIF (.heic/.heif).
 
 > **Note**: RAW files provide full 16-bit editing latitude for maximum quality. JPG/HEIC are 8-bit — grading range is more limited, exposure adjustments should be more conservative.
 
@@ -56,20 +67,24 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r photo-grader/requirements.txt
 
-# Or use the all-in-one setup script
-bash setup.sh
+# Or use the skill's setup script (checks + installs)
+bash photo-grader/scripts/setup_deps.sh
 
 # Before each session, activate venv
 source .venv/bin/activate
 ```
 
-Alternatively, install globally:
+### RawTherapee CLI (Required)
 
 ```bash
-brew install libraw              # macOS
-# apt-get install libraw-dev     # Debian/Ubuntu
-# dnf install LibRaw-devel       # RedHat/CentOS/Fedora
-pip3 install -r photo-grader/requirements.txt
+# macOS
+brew install --cask rawtherapee
+
+# Debian / Ubuntu
+sudo apt install rawtherapee-cli
+
+# Fedora / RHEL
+sudo dnf install RawTherapee
 ```
 
 ## Configuration
@@ -79,9 +94,12 @@ Copy `config.example.toml` to `config.toml` and edit to set your directories. Se
 ## Usage
 
 ```bash
-# Apply grading
+# With absolute paths in grading_params.json (--raw-dir not needed)
+python3 scripts/grade.py grading_params.json --output ~/Photos/graded
+
+# With relative filenames in params (needs --raw-dir)
 python3 scripts/grade.py grading_params.json \
-    --raw-dir ~/data/RAW --output ~/data/output/graded
+    --raw-dir ~/Photos/RAW --output ~/Photos/graded
 
 # Full resolution
 python3 scripts/grade.py grading_params.json --no-resize
@@ -93,49 +111,81 @@ python3 scripts/grade.py grading_params.json \
 
 # Preview
 python3 scripts/grade.py grading_params.json --dry-run
+
+# Export PP3 only (for manual inspection or external use)
+python3 scripts/grade.py grading_params.json --pp3-only --pp3-output ./pp3_files/
+
+# Fast export mode (skip heavy modules for speed)
+python3 scripts/grade.py grading_params.json --fast-export
+
+# Control lens correction and camera matching
+python3 scripts/grade.py grading_params.json --lens-corr
+python3 scripts/grade.py grading_params.json --no-lens-corr
+python3 scripts/grade.py grading_params.json --auto-match
+python3 scripts/grade.py grading_params.json --no-auto-match
 ```
 
-| Option          | Description                                     | Default      |
-| --------------- | ----------------------------------------------- | ------------ |
-| `params_json`   | Grading parameters JSON                         | required     |
-| `--raw-dir`     | RAW files directory                             | from config  |
-| `--uniform-dir` | Apply first param set to ALL files in directory | —            |
-| `--output`      | Output directory                                | from config  |
-| `--quality`     | JPEG quality (1-100)                            | 95           |
-| `--size`        | Max output dimension                            | full res     |
-| `--workers`     | Parallel workers                                | auto (max 8) |
-| `--overwrite`   | Overwrite existing files                        | off          |
-| `--no-resize`   | Full RAW resolution                             | off          |
-| `--dry-run`     | Preview only                                    | off          |
+| Option          | Description                                          | Default      |
+| --------------- | ---------------------------------------------------- | ------------ |
+| `params_json`   | Grading parameters JSON                              | required     |
+| `--raw-dir`     | RAW files directory (only needed for relative paths) | from config  |
+| `--uniform-dir` | Apply first param set to ALL files in directory      | —            |
+| `--output`      | Output directory                                     | from config  |
+| `--quality`     | JPEG quality (1-100)                                 | 95           |
+| `--workers`     | Parallel workers                                     | auto (max 8) |
+| `--overwrite`   | Overwrite existing files                             | off          |
+| `--dry-run`     | Preview only                                         | off          |
+| `--pp3-only`    | Only generate PP3 files, don't render                | off          |
+| `--pp3-output`  | Directory for PP3-only output                        | `./pp3/`     |
+| `--fast-export` | Use RT fast export mode (skip heavy modules)         | off          |
+| `--lens-corr`   | Enable/disable lens correction                       | from config  |
+| `--auto-match`  | Enable/disable Auto-Matched Camera Curve             | from config  |
 
 > **Note**: `--uniform-dir` ignores the `file` field in the JSON and applies the first parameter set to every supported photo in the directory. Useful for timelapse sequences where all frames share one grading preset.
 
 ## Color Grading Features
 
+All standard Lightroom parameters are supported with intelligent mapping:
+
+### Fully Supported
+
 - ✅ Exposure (stop-based)
 - ✅ Contrast
-- ✅ Highlights / Shadows / Whites / Blacks (multiplicative tone mapping)
-- ✅ White Balance (multiplicative channel gains)
+- ✅ Highlights / Shadows / Whites / Blacks
+- ✅ White Balance (temperature/tint)
 - ✅ Vibrance & Saturation
-- ✅ Parametric Tone Curve (CubicSpline)
-- ✅ HSL Per-channel Adjustments
+- ✅ Parametric Tone Curve
+- ✅ HSL Per-channel Adjustments (8 channels)
 - ✅ Three-Way Color Grading
-- ✅ Sharpening (UnsharpMask)
-- ✅ Noise Reduction
+- ✅ Sharpening (RL Deconvolution)
+- ✅ Noise Reduction (IWT/astronomy)
 - ✅ Vignette
 - ✅ Film Grain
+
+### RawTherapee-Specific Features
+
+- **Auto-Matched Camera Profile**: Matches in-camera JPEG tone for ~50 camera models
+- **Lens Correction**: Automatic via lensfun database
+- **Fast Export Mode**: Skip heavy modules for speed
+- **16-bit Output**: TIFF/PNG at 16-bit depth
 
 ## Cross-Format Support
 
 The `find_raw_file()` function intelligently matches filenames across camera brands and formats:
 
+- **Absolute path mode**: If `grading_params.json` has `"file": "/path/to/DSC_0001.NEF"` and the file exists, it's used directly
+- **Absolute path fallback**: If the absolute path doesn't exist, tries different extensions in the same directory
+- **Relative path mode**: If `"file": "DSC_0001.NEF"`, searches under `--raw-dir` by stem name
+- **Subdirectory prefix**: If a RAW file is in a subdirectory under `--raw-dir`, the output filename gets a prefix: `001_DSC_0001_暖春丝滑.jpg`
+
+Stem-based matching works across formats:
+
 - If `grading_params.json` says `DSC_0001.NEF` but the actual file is `DSC_0001.CR2`, it will still be found
 - Also matches JPG and HEIC files: `IMG_0001.HEIC` or `DSC_0001.JPG`
-- Stem-based matching with any supported extension
 
 ## Agent Integration
 
 1. **Check dependencies**: `bash scripts/setup_deps.sh`
-2. **Ensure thumbnails**: use `photo-converter` first
+2. **Ensure thumbnails**: use `photo-toolkit` first
 3. **Get grading params**: use `photo_curator_prompt.md` prompt with multimodal LLM
 4. **Run grading**: `python3 scripts/grade.py grading_params.json --raw-dir ... --output ...`

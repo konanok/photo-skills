@@ -60,8 +60,8 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r photo-screener/requirements.txt
 
-# Or use the all-in-one setup script
-bash setup.sh
+# Or use the skill's setup script (checks + installs)
+bash photo-screener/scripts/setup_deps.sh
 
 # Before each session, activate venv
 source .venv/bin/activate
@@ -107,33 +107,39 @@ Copy `config.example.toml` to `config.toml` and edit. See `config.example.toml` 
 
 ```bash
 # Basic screening
-python3 scripts/screen.py ~/data/output/{session-id}/thumbnails
+python3 scripts/screen.py ~/data/output/thumbnails
 
 # Custom thresholds
-python3 scripts/screen.py ~/data/output/{session-id}/thumbnails \
+python3 scripts/screen.py ~/data/output/thumbnails \
     --min-score 5.0 --sim-threshold 0.95
 
 # Keep top 50
-python3 scripts/screen.py ~/data/output/{session-id}/thumbnails --top-k 50
+python3 scripts/screen.py ~/data/output/thumbnails --top-k 50
 
 # Auto-download model (skip confirmation)
-python3 scripts/screen.py ~/data/output/{session-id}/thumbnails --auto-download
+python3 scripts/screen.py ~/data/output/thumbnails --auto-download
+
+# Pass specific file paths instead of a directory
+python3 scripts/screen.py \
+    --paths ~/data/RAW/001/thumbnails/DSC_0001.jpg \
+            ~/data/RAW/001/thumbnails/DSC_0002.jpg
 
 # Dry run
-python3 scripts/screen.py ~/data/output/{session-id}/thumbnails --dry-run
+python3 scripts/screen.py ~/data/output/thumbnails --dry-run
 ```
 
-| Option            | Description                | Default  |
-| ----------------- | -------------------------- | -------- |
-| `input_dir`       | Directory with photos      | required |
-| `--output`, `-o`  | Output JSON path           | auto     |
-| `--min-score`     | Min aesthetic score (1-10) | 4.0      |
-| `--sim-threshold` | Dedup threshold (0-1)      | 0.97     |
-| `--batch-size`    | Max photos per LLM batch   | 20       |
-| `--top-k`         | Keep only top K            | all      |
-| `--recursive`     | Search subdirectories      | off      |
-| `--auto-download` | Skip model download prompt | off      |
-| `--dry-run`       | Preview only               | off      |
+| Option            | Description                                     | Default  |
+| ----------------- | ----------------------------------------------- | -------- |
+| `input_dir`       | Directory with photos (optional with --paths)   | required |
+| `--paths`         | Specific image paths (alternative to input_dir) | —        |
+| `--output`, `-o`  | Output JSON path                                | auto     |
+| `--min-score`     | Min aesthetic score (1-10)                      | 4.0      |
+| `--sim-threshold` | Dedup threshold (0-1)                           | 0.97     |
+| `--batch-size`    | Max photos per LLM batch                        | 20       |
+| `--top-k`         | Keep only top K                                 | all      |
+| `--recursive`     | Search subdirectories                           | off      |
+| `--auto-download` | Skip model download prompt                      | off      |
+| `--dry-run`       | Preview only                                    | off      |
 
 ## Pipeline
 

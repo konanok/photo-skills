@@ -27,7 +27,7 @@ AI-powered photography post-processing toolkit — convert, screen, and color-gr
 ```
 RAW / JPG / HEIC
     │
-    ▼  photo-converter/scripts/convert.py
+    ▼  photo-toolkit/scripts/convert.py
     │  Generate JPG thumbnails for preview
     │
     ▼  photo-screener/scripts/screen.py        (optional, for large batches)
@@ -37,15 +37,15 @@ RAW / JPG / HEIC
     ▼  [LLM generates grading_params.json]
     │
     ▼  photo-grader/scripts/grade.py
-    │  Batch Lightroom-style color grading
+    │  Batch color grading (RawTherapee)
     │
-    ▼  photo-converter/scripts/layout_preview.py
+    ▼  photo-toolkit/scripts/layout_preview.py
        Before/After comparison or grid preview
 ```
 
 ## Skills
 
-### photo-converter
+### photo-toolkit
 
 Convert camera photos to JPG thumbnails, find photos by EXIF date, detect timelapse sequences, generate layout previews, deflicker frame sequences, and assemble frames into video.
 
@@ -58,12 +58,12 @@ Convert camera photos to JPG thumbnails, find photos by EXIF date, detect timela
 | `assemble.py`       | Assemble JPG frames into H.264 MP4 video via FFmpeg                       |
 
 ```bash
-python3 photo-converter/scripts/convert.py <input> <output> [--size 1200] [--quality 85]
-python3 photo-converter/scripts/find_by_date.py --date 2026-03-15
-python3 photo-converter/scripts/find_by_date.py <input> --timelapse [--copy-to <output>]
-python3 photo-converter/scripts/layout_preview.py <graded_dir> --originals <raw_dir>
-python3 photo-converter/scripts/deflicker.py <frames_dir> [--window 11]
-python3 photo-converter/scripts/assemble.py <frames_dir> --output <video.mp4> [--fps 25] [--crf 18]
+python3 photo-toolkit/scripts/convert.py <input> <output> [--size 1200] [--quality 85]
+python3 photo-toolkit/scripts/find_by_date.py --date 2026-03-15
+python3 photo-toolkit/scripts/find_by_date.py <input> --timelapse [--copy-to <output>]
+python3 photo-toolkit/scripts/layout_preview.py <graded_dir> --originals <raw_dir>
+python3 photo-toolkit/scripts/deflicker.py <frames_dir> [--window 11]
+python3 photo-toolkit/scripts/assemble.py <frames_dir> --output <video.mp4> [--fps 25] [--crf 18]
 ```
 
 ### photo-screener
@@ -87,21 +87,26 @@ Auto-skipped when photo count ≤ 20. Model (~300MB) downloads on first run with
 
 ### photo-grader
 
-Apply Lightroom-style color grading driven by JSON parameters.
+Apply professional-grade color grading driven by JSON parameters, using RawTherapee CLI as the sole engine.
 
 Grading features: exposure, contrast, highlights/shadows/whites/blacks, white balance,
 vibrance/saturation, parametric tone curve, HSL per-channel, three-way color grading,
-sharpening, noise reduction, vignette, film grain.
+sharpening (RL Deconvolution), noise reduction (IWT/astronomy), vignette, film grain.
 
 ```bash
 python3 photo-grader/scripts/grade.py <grading_params.json> --raw-dir <raw_dir> --output <output_dir>
 # Uniform mode: apply one parameter set to ALL files in a directory (timelapse / batch)
 python3 photo-grader/scripts/grade.py <grading_params.json> --uniform-dir <dir> --output <output_dir>
+# PP3-only: generate PP3 sidecar files without rendering
+python3 photo-grader/scripts/grade.py <grading_params.json> --pp3-only --pp3-output ./pp3/
+# Fast export mode
+python3 photo-grader/scripts/grade.py <grading_params.json> --fast-export --lens-corr --auto-match
 ```
 
 Key behaviors:
 
-- Accepts Lightroom-style parameter values — auto-maps to engine-safe values via histogram-aware scaling
+- Accepts Lightroom-style parameter values — auto-maps to RT PP3 format
+- Professional RAW pipeline: AMAZE demosaicing, RL Deconvolution sharpening, IWT denoise, lensfun correction, Auto-Matched Camera Profiles
 - Cross-format file matching: params say `DSC_0001.NEF`, actual file is `.CR2` → still works
 - RAW files: full 16-bit editing latitude. JPG/HEIC: 8-bit, keep adjustments conservative.
 - `--uniform-dir`: apply first param set to every file in directory (ignores `file` field in JSON)
@@ -112,7 +117,7 @@ Key behaviors:
 
 ```bash
 # 1. Create config files
-cp photo-converter/config.example.toml photo-converter/config.toml
+cp photo-toolkit/config.example.toml photo-toolkit/config.toml
 cp photo-grader/config.example.toml    photo-grader/config.toml
 cp photo-screener/config.example.toml  photo-screener/config.toml
 # Edit each config.toml to set your input/output directories
@@ -120,13 +125,12 @@ cp photo-screener/config.example.toml  photo-screener/config.toml
 # 2. Create venv and install dependencies (recommended)
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r photo-converter/requirements.txt -r photo-grader/requirements.txt -r photo-screener/requirements.txt
+pip install -r photo-toolkit/requirements.txt -r photo-grader/requirements.txt -r photo-screener/requirements.txt
 
-# Or use the all-in-one setup script
-bash setup.sh
-
-# 3. Verify environment
-bash check_env.sh
+# Or run each skill's setup script
+bash photo-toolkit/scripts/setup_deps.sh
+bash photo-screener/scripts/setup_deps.sh
+bash photo-grader/scripts/setup_deps.sh
 
 # Before each session, activate venv
 source .venv/bin/activate
@@ -143,17 +147,17 @@ source .venv/bin/activate
 
 Each skill reads defaults from its `config.toml`. CLI arguments always override config values.
 
-| Skill           | Key config fields                                                          |
-| --------------- | -------------------------------------------------------------------------- |
-| photo-converter | `input_dir`, `output_dir`, `size` (1200), `quality` (85)                   |
-| photo-grader    | `raw_dir`, `output_dir`, `quality` (95)                                    |
-| photo-screener  | `clip_model`, `min_score` (4.0), `sim_threshold` (0.97), `batch_size` (20) |
+| Skill          | Key config fields                                                          |
+| -------------- | -------------------------------------------------------------------------- |
+| photo-toolkit  | `input_dir`, `output_dir`, `size` (1200), `quality` (85)                   |
+| photo-grader   | `raw_dir`, `output_dir`, `quality` (95)                                    |
+| photo-screener | `clip_model`, `min_score` (4.0), `sim_threshold` (0.97), `batch_size` (20) |
 
 ## Agent Integration
 
 When integrating with an AI agent:
 
-1. Run `bash check_env.sh` to verify environment
+1. Run each skill's `scripts/setup_deps.sh` to verify and install dependencies
 2. Use `--dry-run` on any script to preview before executing
 3. For screener, use `--auto-download` to skip model download prompt
 4. All scripts output structured progress to stdout, errors to stderr
@@ -163,7 +167,7 @@ When integrating with an AI agent:
 
 ```bash
 # Step 1: Convert
-python3 photo-converter/scripts/convert.py ~/Photos/RAW ~/output/thumbnails
+python3 photo-toolkit/scripts/convert.py ~/Photos/RAW ~/output/thumbnails
 
 # Step 2: Screen (skip if ≤ 20 photos)
 python3 photo-screener/scripts/screen.py ~/output/thumbnails \
@@ -176,7 +180,7 @@ python3 photo-grader/scripts/grade.py ~/output/grading_params.json \
     --raw-dir ~/Photos/RAW --output ~/output/graded
 
 # Step 5: Preview
-python3 photo-converter/scripts/layout_preview.py ~/output/graded \
+python3 photo-toolkit/scripts/layout_preview.py ~/output/graded \
     --originals ~/Photos/RAW --params ~/output/grading_params.json
 ```
 
@@ -184,7 +188,7 @@ python3 photo-converter/scripts/layout_preview.py ~/output/graded \
 
 ```bash
 # Step 1: Detect & extract timelapse frames (exclude casual shots)
-python3 photo-converter/scripts/find_by_date.py ~/Photos/RAW \
+python3 photo-toolkit/scripts/find_by_date.py ~/Photos/RAW \
     --timelapse --copy-to ~/output/timelapse_frames
 
 # Step 2: Uniform grade — one parameter set for all frames
@@ -192,9 +196,9 @@ python3 photo-grader/scripts/grade.py ~/output/grading_params.json \
     --uniform-dir ~/output/timelapse_frames --output ~/output/graded
 
 # Step 3: Deflicker — smooth luminance fluctuations
-python3 photo-converter/scripts/deflicker.py ~/output/graded
+python3 photo-toolkit/scripts/deflicker.py ~/output/graded
 
 # Step 4: Assemble — frames → MP4 video
-python3 photo-converter/scripts/assemble.py ~/output/graded \
+python3 photo-toolkit/scripts/assemble.py ~/output/graded \
     --output ~/output/timelapse.mp4 --fps 25
 ```

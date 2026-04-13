@@ -42,7 +42,7 @@ import urllib.request
 from pathlib import Path
 
 # Ensure line-buffered output
-if hasattr(sys.stdout, 'reconfigure'):
+if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(line_buffering=True)
 
 # ── Configuration ───────────────────────────────────────────────
@@ -55,9 +55,7 @@ except ModuleNotFoundError:
 _SKILL_DIR = Path(__file__).resolve().parent.parent
 _ROOT_DIR = _SKILL_DIR.parent
 _DEFAULT_CONFIG_PATH = (
-    _SKILL_DIR / "config.toml"
-    if (_SKILL_DIR / "config.toml").exists()
-    else _ROOT_DIR / "config.toml"
+    _SKILL_DIR / "config.toml" if (_SKILL_DIR / "config.toml").exists() else _ROOT_DIR / "config.toml"
 )
 
 
@@ -114,6 +112,7 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tiff", ".tif", ".bmp", ".webp", "
 _HEIC_AVAILABLE = False
 try:
     from pillow_heif import register_heif_opener
+
     register_heif_opener()
     _HEIC_AVAILABLE = True
 except ImportError:
@@ -127,7 +126,9 @@ _MOBILECLIP_EMBED_DIM = 512
 
 # Aesthetic model expects 768-dim (ViT-L/14)
 _AESTHETIC_INPUT_DIM = 768
-_AESTHETIC_MODEL_URL = "https://github.com/christophschuhmann/improved-aesthetic-predictor/raw/main/sac+logos+ava1-l14-linearMSE.pth"
+_AESTHETIC_MODEL_URL = (
+    "https://github.com/christophschuhmann/improved-aesthetic-predictor/raw/main/sac+logos+ava1-l14-linearMSE.pth"
+)
 
 # HuggingFace mirror for China
 _HF_MIRROR = "https://hf-mirror.com"
@@ -190,13 +191,17 @@ def load_clip_model(model_name, pretrained, device, auto_download=False):
             answer = input("  是否下载模型？[Y/n] ").strip()
             if answer and answer.lower() not in ("y", "yes", "是"):
                 print("\n❌ 模型下载已取消。无法继续运行。")
-                print(f"   手动下载: HF_ENDPOINT={_HF_MIRROR} python3 -c \"import open_clip; open_clip.create_model_and_transforms('{model_name}', pretrained='{pretrained}')\"")
+                print(
+                    f"   手动下载: HF_ENDPOINT={_HF_MIRROR} python3 -c \"import open_clip; open_clip.create_model_and_transforms('{model_name}', pretrained='{pretrained}')\""
+                )
                 sys.exit(1)
         else:
             # Non-interactive mode — abort with instructions
             print("❌ 模型未下载且当前为非交互模式。")
             print(f"   请先手动下载模型:")
-            print(f"   HF_ENDPOINT={_HF_MIRROR} python3 -c \"import open_clip; open_clip.create_model_and_transforms('{model_name}', pretrained='{pretrained}')\"")
+            print(
+                f"   HF_ENDPOINT={_HF_MIRROR} python3 -c \"import open_clip; open_clip.create_model_and_transforms('{model_name}', pretrained='{pretrained}')\""
+            )
             print(f"\n   或运行: bash {_SKILL_DIR}/scripts/setup_deps.sh")
             print(f"   或添加 --auto-download 参数跳过确认")
             sys.exit(1)
@@ -209,9 +214,7 @@ def load_clip_model(model_name, pretrained, device, auto_download=False):
         print(f"   镜像源: {_HF_MIRROR}")
 
     try:
-        model, _, preprocess = open_clip.create_model_and_transforms(
-            model_name, pretrained=pretrained
-        )
+        model, _, preprocess = open_clip.create_model_and_transforms(model_name, pretrained=pretrained)
         tokenizer = open_clip.get_tokenizer(model_name)
 
         model = model.to(device)
@@ -261,16 +264,20 @@ def _get_aesthetic_model_path():
     cache_dir.mkdir(parents=True, exist_ok=True)
     model_path = cache_dir / "aesthetic_sac_logos_ava1_l14_linearMSE.pth"
 
-    if not model_path.exists():
-        print(f"📥 Downloading aesthetic model (~3MB)...")
-        try:
-            urllib.request.urlretrieve(_AESTHETIC_MODEL_URL, str(model_path))
-            print(f"   ✓ Saved to: {model_path}")
-        except Exception as e:
-            print(f"❌ Failed to download aesthetic model: {e}", file=sys.stderr)
-            print("   You can manually download from:", file=sys.stderr)
-            print(f"   {_AESTHETIC_MODEL_URL}", file=sys.stderr)
-            sys.exit(1)
+    if model_path.exists():
+        return model_path
+
+    print(f"📥 Downloading aesthetic model (~3MB)...")
+    print(f"   建议预下载: bash {_SKILL_DIR}/scripts/setup_deps.sh")
+    try:
+        urllib.request.urlretrieve(_AESTHETIC_MODEL_URL, str(model_path))
+        print(f"   ✓ Saved to: {model_path}")
+    except Exception as e:
+        print(f"❌ Failed to download aesthetic model: {e}", file=sys.stderr)
+        print("   You can manually download from:", file=sys.stderr)
+        print(f"   {_AESTHETIC_MODEL_URL}", file=sys.stderr)
+        print(f"\n   Or run: bash {_SKILL_DIR}/scripts/setup_deps.sh", file=sys.stderr)
+        sys.exit(1)
 
     return model_path
 
@@ -447,8 +454,20 @@ def classify_scenes(embeddings, model, tokenizer, device, categories=None):
         ]
 
     label_names = [
-        "人像", "风景", "街拍", "建筑", "美食", "动物",
-        "夜景", "微距", "合影", "静物", "运动", "婚礼/仪式", "旅行", "抽象/艺术",
+        "人像",
+        "风景",
+        "街拍",
+        "建筑",
+        "美食",
+        "动物",
+        "夜景",
+        "微距",
+        "合影",
+        "静物",
+        "运动",
+        "婚礼/仪式",
+        "旅行",
+        "抽象/艺术",
     ]
 
     # Encode text prompts using open_clip tokenizer
@@ -464,18 +483,26 @@ def classify_scenes(embeddings, model, tokenizer, device, categories=None):
     for i in range(len(embeddings)):
         row = all_scores[i]
         sorted_indices = np.argsort(row)[::-1]
-        primary = label_names[sorted_indices[0]] if sorted_indices[0] < len(label_names) else categories[sorted_indices[0]]
+        primary = (
+            label_names[sorted_indices[0]] if sorted_indices[0] < len(label_names) else categories[sorted_indices[0]]
+        )
         secondary = None
         if len(sorted_indices) > 1:
             diff = row[sorted_indices[0]] - row[sorted_indices[1]]
             if diff < 0.03:
-                secondary = label_names[sorted_indices[1]] if sorted_indices[1] < len(label_names) else categories[sorted_indices[1]]
+                secondary = (
+                    label_names[sorted_indices[1]]
+                    if sorted_indices[1] < len(label_names)
+                    else categories[sorted_indices[1]]
+                )
 
-        labels.append({
-            "primary": primary,
-            "secondary": secondary,
-            "confidence": round(float(row[sorted_indices[0]]), 4),
-        })
+        labels.append(
+            {
+                "primary": primary,
+                "secondary": secondary,
+                "confidence": round(float(row[sorted_indices[0]]), 4),
+            }
+        )
 
     return labels, all_scores
 
@@ -497,12 +524,14 @@ def create_batches(photos, batch_size=20):
         group.sort(key=lambda x: -x.get("aesthetic_score", 0))
         for i in range(0, len(group), batch_size):
             batch = group[i : i + batch_size]
-            batches.append({
-                "batch_id": len(batches) + 1,
-                "scene_tag": tag,
-                "count": len(batch),
-                "photos": batch,
-            })
+            batches.append(
+                {
+                    "batch_id": len(batches) + 1,
+                    "scene_tag": tag,
+                    "count": len(batch),
+                    "photos": batch,
+                }
+            )
 
     return batches
 
@@ -533,6 +562,7 @@ def run_pipeline(
     scene_categories=None,
     dry_run=False,
     auto_download=False,
+    pre_images=None,
 ):
     """Run the full photo filtering pipeline."""
     total_start = time.monotonic()
@@ -541,12 +571,13 @@ def run_pipeline(
     print(f"  📸 Photo Filter V2 — MobileCLIP-powered Smart Pre-screening")
     print(f"{'═' * 60}\n")
 
-    images = find_images(input_dir, recursive)
+    images = pre_images if pre_images else find_images(input_dir, recursive)
     if not images:
         print("❌ No image files found.")
         sys.exit(1)
 
-    print(f"📂 Input:  {Path(input_dir).resolve()}")
+    display_dir = input_dir if input_dir else (str(images[0].parent) if images else "N/A")
+    print(f"📂 Input:  {Path(display_dir).resolve() if input_dir else display_dir}")
     print(f"📷 Found:  {len(images)} image(s)")
     print(f"🎯 Config: model={clip_model_name}, min_score={min_score}, sim_threshold={sim_threshold}")
 
@@ -658,12 +689,14 @@ def run_pipeline(
     # ── Step 8: Build report ────────────────────────────────────
     photos = []
     for i, (path, score, label) in enumerate(zip(kept_paths, kept_scores, scene_labels)):
-        photos.append({
-            "file": path.name,
-            "path": str(path),
-            "aesthetic_score": round(float(score), 3),
-            "scene": label,
-        })
+        photos.append(
+            {
+                "file": path.name,
+                "path": str(path),
+                "aesthetic_score": round(float(score), 3),
+                "scene": label,
+            }
+        )
 
     photos.sort(key=lambda x: -x["aesthetic_score"])
     batches = create_batches(photos, batch_size)
@@ -697,10 +730,18 @@ def run_pipeline(
             ],
             "duplicates": [
                 {
-                    "kept": {"file": Path(group[max(range(len(group)), key=lambda gi: group[gi][2])][1]).name, "score": round(group[max(range(len(group)), key=lambda gi: group[gi][2])][2], 3)},
-                    "removed": [{"file": Path(m[1]).name, "score": round(m[2], 3)} for mi, m in enumerate(group) if mi != max(range(len(group)), key=lambda gi: group[gi][2])],
+                    "kept": {
+                        "file": Path(group[max(range(len(group)), key=lambda gi: group[gi][2])][1]).name,
+                        "score": round(group[max(range(len(group)), key=lambda gi: group[gi][2])][2], 3),
+                    },
+                    "removed": [
+                        {"file": Path(m[1]).name, "score": round(m[2], 3)}
+                        for mi, m in enumerate(group)
+                        if mi != max(range(len(group)), key=lambda gi: group[gi][2])
+                    ],
                 }
-                for group in dup_groups if len(group) > 1
+                for group in dup_groups
+                if len(group) > 1
             ],
             "encode_errors": [{"file": p, "error": e} for p, e in encode_errors],
         },
@@ -745,11 +786,16 @@ Examples:
   %(prog)s ~/Downloads/output/{session-id}/thumbnails --auto-download
         """,
     )
-    parser.add_argument("input_dir", help="Directory containing photos (JPG thumbnails)")
+    parser.add_argument("input_dir", nargs="?", default=None, help="Directory containing photos (JPG thumbnails)")
+    parser.add_argument("--paths", nargs="+", type=str, default=None, help="缩略图绝对路径列表（替代 input_dir）")
     parser.add_argument("--output", "-o", type=str, default=None, help="Output JSON report path")
     parser.add_argument("--config", type=str, default=None, help="Path to config.toml")
-    parser.add_argument("--min-score", type=float, default=None, help="Minimum aesthetic score threshold (default: 4.0)")
-    parser.add_argument("--sim-threshold", type=float, default=None, help="Cosine similarity threshold for dedup (default: 0.97)")
+    parser.add_argument(
+        "--min-score", type=float, default=None, help="Minimum aesthetic score threshold (default: 4.0)"
+    )
+    parser.add_argument(
+        "--sim-threshold", type=float, default=None, help="Cosine similarity threshold for dedup (default: 0.97)"
+    )
     parser.add_argument("--batch-size", type=int, default=None, help="Max photos per LLM batch (default: 20)")
     parser.add_argument("--top-k", type=int, default=None, help="Keep only top K photos after filtering")
     parser.add_argument("--recursive", "-r", action="store_true", default=None, help="Search subdirectories")
@@ -757,6 +803,9 @@ Examples:
     parser.add_argument("--auto-download", action="store_true", help="Auto-download model without confirmation")
 
     args = parser.parse_args()
+
+    if not args.input_dir and not args.paths:
+        parser.error("input_dir or --paths is required")
 
     cfg = load_config(args.config)
 
@@ -768,12 +817,20 @@ Examples:
     top_k = args.top_k if args.top_k is not None else cfg.get("top_k") or None
     recursive = args.recursive if args.recursive is not None else cfg.get("recursive", False)
 
+    # Build pre_images from --paths if provided
+    pre_images = None
+    input_dir = args.input_dir
+    if args.paths:
+        pre_images = [Path(p).expanduser().resolve() for p in args.paths]
+        pre_images = [p for p in pre_images if p.exists() and p.suffix.lower() in IMAGE_EXTENSIONS]
+        input_dir = str(pre_images[0].parent) if pre_images and not input_dir else input_dir
+
     output_json = args.output or cfg.get("screener_output") or cfg.get("output")
-    if not output_json:
-        output_json = str(Path(args.input_dir).expanduser().resolve() / "filter_report.json")
+    if not output_json and input_dir:
+        output_json = str(Path(input_dir).expanduser().resolve() / "filter_report.json")
 
     run_pipeline(
-        input_dir=args.input_dir,
+        input_dir=input_dir,
         output_json=output_json if not args.dry_run else None,
         clip_model_name=clip_model_name,
         clip_pretrained=clip_pretrained,
@@ -784,6 +841,7 @@ Examples:
         recursive=recursive,
         dry_run=args.dry_run,
         auto_download=args.auto_download,
+        pre_images=pre_images,
     )
 
 

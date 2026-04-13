@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────
 # photo-grader — Dependency Check & Install
+#
+# Engine: RawTherapee CLI (rawtherapee-cli)
 # ─────────────────────────────────────────────────────────────
 set -euo pipefail
 
 SKILL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-REQUIREMENTS="$SKILL_DIR/requirements.txt"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BOLD='\033[1m'
 NC='\033[0m'
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -17,111 +19,77 @@ echo "  📦 photo-grader — 依赖检查"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-MISSING_SYS=()
-MISSING_PY=()
 ALL_OK=true
+HAS_RT=false
 
-# ── 1. Check system dependency: libraw ──────────────────────
-echo "🔍 检查系统依赖..."
-if [ -f /usr/lib/libraw.so ] || [ -f /usr/lib64/libraw.so ] || [ -f /usr/lib/x86_64-linux-gnu/libraw.so ] || ldconfig -p 2>/dev/null | grep -q libraw; then
-    echo -e "  ${GREEN}✓${NC} libraw (system)"
-elif command -v brew &>/dev/null && brew list libraw &>/dev/null 2>&1; then
-    echo -e "  ${GREEN}✓${NC} libraw (Homebrew)"
+# ── Check RawTherapee CLI ─────────────────────────────────────
+echo -e "${BOLD}检查 RawTherapee CLI...${NC}"
+echo ""
+
+if command -v rawtherapee-cli &>/dev/null; then
+    RT_VER=$(rawtherapee-cli --version 2>&1 | head -1 || echo "unknown")
+    echo -e "  ${GREEN}✓${NC} rawtherapee-cli ($RT_VER)"
+    HAS_RT=true
+elif command -v rawtherapee &>/dev/null; then
+    RT_PATH=$(command -v rawtherapee)
+    echo -e "  ${YELLOW}⚠${NC} 找到 rawtherapee GUI ($RT_PATH)，但未找到 rawtherapee-cli"
+    echo -e "       确认安装了 rawtherapee-cli 包（不是仅 GUI 版本）"
+    ALL_OK=false
 else
-    echo -e "  ${RED}✗${NC} libraw — 未安装"
-    MISSING_SYS+=("libraw")
+    echo -e "  ${RED}✗${NC} rawtherapee-cli — 未安装（必须安装）"
+    echo "       安装: brew install --cask rawtherapee (macOS)"
+    echo "            sudo apt install rawtherapee-cli (Debian/Ubuntu)"
+    echo "            sudo dnf install RawTherapee (Fedora/RHEL)"
+    echo "       或使用 Docker: docker pull lscr.io/linuxserver/rawtherapee:latest"
     ALL_OK=false
 fi
 
-# ── 2. Check Python dependencies ───────────────────────────
+# ── Check tomli (Python < 3.11) ───────────────────────────────
 echo ""
-echo "🔍 检查 Python 依赖..."
+echo -e "${BOLD}检查 Python 依赖...${NC}"
+echo ""
 
-check_python_pkg() {
-    local import_name="$1"
-    local pip_name="$2"
-    if python3 -c "import $import_name" 2>/dev/null; then
-        local ver
-        ver=$(python3 -c "import $import_name; print(getattr($import_name, '__version__', getattr($import_name, 'VERSION', '?')))" 2>/dev/null || echo "?")
-        echo -e "  ${GREEN}✓${NC} $pip_name ($ver)"
-    else
-        echo -e "  ${RED}✗${NC} $pip_name — 未安装"
-        MISSING_PY+=("$pip_name")
+PY_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null || echo "?")
+if python3 -c "import tomllib" 2>/dev/null; then
+    echo -e "  ${GREEN}✓${NC} tomllib (Python $PY_VER stdlib)"
+elif python3 -c "import tomli" 2>/dev/null; then
+    echo -e "  ${GREEN}✓${NC} tomli (Python $PY_VER)"
+else
+    echo -e "  ${YELLOW}⚠${NC} tomli — 未安装（Python < 3.11 需要）"
+    echo "       安装中..."
+    pip3 install tomli && echo -e "  ${GREEN}✓${NC} tomli 安装完成" || {
+        echo -e "  ${RED}✗${NC} tomli 安装失败，请手动运行: pip3 install tomli"
         ALL_OK=false
-    fi
-}
+    }
+fi
 
-check_python_pkg "rawpy" "rawpy"
-check_python_pkg "PIL" "pillow"
-check_python_pkg "numpy" "numpy"
-check_python_pkg "scipy" "scipy"
-
-# ── 3. Summary & Install ───────────────────────────────────
+# ── Summary ──────────────────────────────────────────────────
 echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+if $HAS_RT; then
+    echo -e "  ${GREEN}✅ 引擎就绪：RawTherapee CLI${NC}"
+else
+    echo -e "  ${RED}❌ 引擎不可用：请安装 rawtherapee-cli${NC}"
+fi
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
 if $ALL_OK; then
-    echo -e "${GREEN}✅ 所有依赖已就绪！${NC}"
     exit 0
 fi
 
-echo -e "${YELLOW}⚠️  缺少以下依赖：${NC}"
-
-if [ ${#MISSING_SYS[@]} -gt 0 ]; then
-    echo ""
-    echo "  系统依赖:"
-    for pkg in "${MISSING_SYS[@]}"; do
-        echo "    - $pkg"
-    done
-    echo ""
-    if [[ "$(uname)" == "Darwin" ]]; then
-        echo "  安装命令: brew install ${MISSING_SYS[*]}"
-    elif command -v dnf &>/dev/null; then
-        echo "  安装命令: sudo dnf install LibRaw-devel"
-    elif command -v yum &>/dev/null; then
-        echo "  安装命令: sudo yum install LibRaw-devel"
-    else
-        echo "  安装命令: sudo apt-get install ${MISSING_SYS[*]/%/-dev}"
-    fi
-fi
-
-if [ ${#MISSING_PY[@]} -gt 0 ]; then
-    echo ""
-    echo "  Python 依赖:"
-    for pkg in "${MISSING_PY[@]}"; do
-        echo "    - $pkg"
-    done
-    echo ""
-    echo "  安装命令: pip3 install ${MISSING_PY[*]}"
-fi
-
+# ── Install prompt ───────────────────────────────────────────
 echo ""
-read -r -p "是否立即安装缺少的依赖？[Y/n] " answer
-answer=${answer:-Y}
-
-if [[ "$answer" =~ ^[Yy]$ ]]; then
-    if [ ${#MISSING_SYS[@]} -gt 0 ]; then
-        echo ""
-        echo "📦 安装系统依赖..."
-        if [[ "$(uname)" == "Darwin" ]]; then
-            brew install "${MISSING_SYS[@]}"
-        elif command -v dnf &>/dev/null; then
-            sudo dnf install -y LibRaw-devel
-        elif command -v yum &>/dev/null; then
-            sudo yum install -y LibRaw-devel
-        else
-            sudo apt-get install -y "${MISSING_SYS[@]/%/-dev}"
-        fi
-    fi
-
-    if [ ${#MISSING_PY[@]} -gt 0 ]; then
-        echo ""
-        echo "📦 安装 Python 依赖..."
-        pip3 install "${MISSING_PY[@]}"
-    fi
-
-    echo ""
-    echo -e "${GREEN}✅ 安装完成！${NC}"
+echo -e "${YELLOW}缺少 rawtherapee-cli，请手动安装：${NC}"
+echo ""
+if [[ "$(uname)" == "Darwin" ]]; then
+    echo "  brew install --cask rawtherapee"
+elif command -v dnf &>/dev/null; then
+    echo "  sudo dnf install -y RawTherapee"
 else
-    echo ""
-    echo "跳过安装。请手动安装后重试。"
-    exit 1
+    echo "  sudo apt-get install -y rawtherapee-cli"
 fi
+echo ""
+
+exit 1
