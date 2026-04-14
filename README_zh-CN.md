@@ -39,7 +39,7 @@ RAW / JPG / HEIC 原片
 ### 1. 克隆 & 配置
 
 ```bash
-git clone https://github.com/<your-username>/photo-skills.git
+git clone https://github.com/konanok/photo-skills.git
 cd photo-skills
 
 # 从模板创建配置文件
@@ -221,6 +221,12 @@ cp config.example.toml config.toml
 ```bash
 bash .allinone-skill/merge.sh --revert
 ```
+
+## 快速开发指南
+
+项目内置了 dev container 配置，支持 VS Code / GitHub Codespaces。打开项目后运行 **Dev Containers: Reopen in Container**，容器会自动构建，预装 Node.js、OpenClaw CLI 和 Python，无需手动配置。
+
+如需新增 skill，创建目录并放入脚本，提供 `config.example.toml` 和 `setup_deps.sh`，然后在 `openclaw-photo-agents-creator/` 中注册即可。
 
 ## 许可证
 

@@ -39,7 +39,7 @@ RAW / JPG / HEIC
 ### 1. Clone & configure
 
 ```bash
-git clone https://github.com/<your-username>/photo-skills.git
+git clone https://github.com/konanok/photo-skills.git
 cd photo-skills
 
 # Create config files from templates
@@ -221,6 +221,12 @@ To revert back to three independent skills:
 ```bash
 bash .allinone-skill/merge.sh --revert
 ```
+
+## Quick Dev Guide
+
+This project includes a dev container configuration for VS Code / GitHub Codespaces. Open the project and run **Dev Containers: Reopen in Container** — the container will build with Node.js, OpenClaw CLI, and Python pre-installed, no manual setup needed.
+
+To add a new skill, create a directory with your scripts, provide `config.example.toml` and `setup_deps.sh`, then register it in `openclaw-photo-agents-creator/`.
 
 ## License
 

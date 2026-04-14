@@ -1,0 +1,23 @@
+{
+  "name": "openclaw-photos",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "initializeCommand": "mkdir -p ${localEnv:HOME}/.openclaw-for-photos",
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/workspace/photo-skills,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.openclaw-for-photos,target=/home/vscode/.openclaw,type=bind,consistency=cached"
+  ],
+  "containerEnv": {
+    "OPENCLAW_HOME": "/home/vscode/.openclaw"
+  },
+  "remoteUser": "vscode",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": false,
+      "configureZshAsDefaultShell": false,
+      "nonFreePackages": false
+    }
+  },
+  "workspaceFolder": "/workspace/photo-skills"
+}
