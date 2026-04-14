@@ -3,13 +3,14 @@
   "build": {
     "dockerfile": "Dockerfile"
   },
-  "initializeCommand": "mkdir -p ${localEnv:HOME}/.openclaw-for-photos",
+  "initializeCommand": "mkdir -p ${localEnv:HOME}/.openclaw-for-photos ${localEnv:HOME}/Photos",
   "mounts": [
     "source=${localWorkspaceFolder},target=/workspace/photo-skills,type=bind,consistency=cached",
-    "source=${localEnv:HOME}/.openclaw-for-photos,target=/home/vscode/.openclaw,type=bind,consistency=cached"
+    "source=${localEnv:HOME}/.openclaw-for-photos,target=/home/vscode/.openclaw,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/Photos,target=/home/vscode/Photos,type=bind,consistency=cached"
   ],
   "containerEnv": {
-    "OPENCLAW_HOME": "/home/vscode/.openclaw"
+    "OPENCLAW_HOME": "/home/vscode"
   },
   "remoteUser": "vscode",
   "features": {
