@@ -170,6 +170,44 @@ def copy_skills(photo_skills_dir: Path, target_dir: Path):
             placeholder.write_text(f"# {skill}\n\n请手动安装此 Skill。\n", encoding="utf-8")
 
 
+def _print_photo_grader_dependency_hint():
+    print("     photo-grader 需要可用的 RawTherapee CLI。")
+    print("     macOS 下请先验证: rawtherapee-cli -h")
+    print("     如果是 Agent 自动通过 Homebrew 安装，用户通常还没有显式打开/授权应用或 CLI，")
+    print("     可能会被 macOS 安全机制拦截，并在启动前以 exit 133 / SIGTRAP 退出。")
+    print("     用户自己提前通过 Homebrew 安装并完成授权也可以使用；否则建议改用官网包中的独立 rawtherapee-cli。")
+
+
+def run_skill_setups(skills_target: Path, skills=None):
+    """运行各 skill 的 setup_deps.sh，并汇总失败项。"""
+    skills = skills or ["photo-toolkit", "photo-screener", "photo-grader"]
+    failures = []
+
+    for skill in skills:
+        setup = skills_target / skill / "scripts" / "setup_deps.sh"
+        if not setup.exists():
+            continue
+
+        print(f"\n📦 初始化 {skill}...")
+        result = subprocess.run(["bash", str(setup)], cwd=str(setup.parent), capture_output=True, text=True)
+        if result.stdout.strip():
+            print(result.stdout.rstrip())
+        if result.stderr.strip():
+            print(result.stderr.rstrip())
+
+        if result.returncode != 0:
+            failures.append(skill)
+            print(f"  ⚠️  {skill} 初始化失败（exit {result.returncode}）")
+            combined_output = f"{result.stdout}\n{result.stderr}".lower()
+            if skill == "photo-grader" or "rawtherapee" in combined_output or "sigtrap" in combined_output:
+                _print_photo_grader_dependency_hint()
+
+    if failures:
+        print("\n  ⚠️  以下 skill 依赖初始化失败: " + ", ".join(failures))
+        print("     创建流程会继续，但使用对应功能前必须先修复依赖。")
+    return failures
+
+
 def update_openclaw_json(base_dir: Path, artist_id: str, curator_id: str):
     """
     自动更新 openclaw.json，为 PhotoArtist agent 添加 subagents.allowAgents 配置。
@@ -391,13 +429,9 @@ def main():
         answer = input("  是否现在初始化环境？[Y/n] ").strip()
         do_setup = not answer or answer.lower() in ("y", "yes", "是")
 
+    setup_failures = []
     if do_setup:
-        skills = ["photo-toolkit", "photo-screener", "photo-grader"]
-        for skill in skills:
-            setup = skills_target / skill / "scripts" / "setup_deps.sh"
-            if setup.exists():
-                print(f"\n📦 初始化 {skill}...")
-                subprocess.run(["bash", str(setup)], cwd=str(setup.parent))
+        setup_failures = run_skill_setups(skills_target)
         print()
     else:
         print("\n  ⏭  跳过环境初始化")
@@ -409,7 +443,10 @@ def main():
 
     # 输出结果
     print("\n" + "=" * 50)
-    print("✅ 创建完成!")
+    if setup_failures:
+        print("⚠️  创建完成，但部分依赖初始化失败")
+    else:
+        print("✅ 创建完成!")
     print("=" * 50)
     print(f"\n已注册:")
     print(f"  {config['artist_emoji']} PhotoArtist ({config['artist_name']}):")
@@ -421,6 +458,13 @@ def main():
 
     next_step = 1
     print(f"\n下一步:")
+    if setup_failures:
+        print(f"  {next_step}. 先修复依赖初始化失败项: {', '.join(setup_failures)}")
+        if "photo-grader" in setup_failures:
+            print(
+                "     macOS 下请确认 rawtherapee-cli 已放入 PATH，并通过 rawtherapee-cli -h 验证；Homebrew 安装后可能需要用户手动打开/授权"
+            )
+        next_step += 1
     print(f"  {next_step}. 配置 {skills_target}/config.toml 的照片输入/输出目录")
     next_step += 1
     print(f"  {next_step}. 重启 OpenClaw gateway: openclaw gateway restart")

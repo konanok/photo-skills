@@ -136,17 +136,18 @@ python3 photo-toolkit/scripts/assemble.py ~/Photos/graded \
 
 ## 系统要求
 
-| 项目            | 说明                                                                                                   |
-| --------------- | ------------------------------------------------------------------------------------------------------ |
-| **Python**      | 3.8+                                                                                                   |
-| **RawTherapee** | `brew install --cask rawtherapee`（macOS）/ `apt install rawtherapee-cli`（Debian）。photo-grader 必需 |
-| **libraw**      | `brew install libraw`（macOS）/ `apt-get install libraw-dev`（Debian）。photo-toolkit 需要             |
-| **PyTorch**     | 仅 photo-screener 需要，CPU 即可运行 MobileCLIP2-S0                                                    |
-| **FFmpeg**      | 仅 `assemble.py` 需要，用于视频编码。`brew install ffmpeg`（macOS）/ `apt-get install ffmpeg`          |
-| **磁盘**        | MobileCLIP2-S0 模型约 300MB（screener 首次运行时下载）                                                 |
+| 项目            | 说明                                                                                                                                                                                      |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Python**      | 3.8+                                                                                                                                                                                      |
+| **RawTherapee** | `rawtherapee-cli` 放入 `PATH`（macOS；Homebrew 安装并完成用户授权后可用，否则使用官网独立 CLI；用 `rawtherapee-cli -h` 验证）/ `apt install rawtherapee-cli`（Debian）。photo-grader 必需 |
+| **libraw**      | `brew install libraw`（macOS）/ `apt-get install libraw-dev`（Debian）。photo-toolkit 需要                                                                                                |
+| **PyTorch**     | 仅 photo-screener 需要，CPU 即可运行 MobileCLIP2-S0                                                                                                                                       |
+| **FFmpeg**      | 仅 `assemble.py` 需要，用于视频编码。`brew install ffmpeg`（macOS）/ `apt-get install ffmpeg`                                                                                             |
+| **磁盘**        | MobileCLIP2-S0 模型约 300MB（screener 首次运行时下载）                                                                                                                                    |
 
 ## 注意事项
 
+- **macOS RawTherapee CLI**：安装后务必用 `rawtherapee-cli -h` 验证。如果以 `133` / `SIGTRAP` 退出，通常是启动前被 macOS 安全机制拦截。Agent 自动通过 Homebrew 安装后，用户通常还没有显式打开/授权应用或 CLI，因此更容易触发；用户自己提前通过 Homebrew 安装并完成授权也可以使用。无法完成授权时，改用官网包中的独立 `rawtherapee-cli` 并放入 `PATH`。
 - **先配置再使用**：每个模块需将 `config.example.toml` 复制为 `config.toml` 并设置目录路径。`config.toml` 已加入 gitignore，不会被提交。
 - **缩略图在 RAW 旁边**：`convert.py` 默认将缩略图输出到 `{input}/thumbnails/`，与原片同目录。
 - **RAW vs JPG/HEIC 调色差异**：RAW 文件提供完整 16-bit 编辑空间，调色效果最佳。JPG/HEIC 为 8-bit，曝光调整幅度应更保守。

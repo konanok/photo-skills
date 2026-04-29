@@ -3,6 +3,12 @@
 # photo-grader — Dependency Check & Install
 #
 # Engine: RawTherapee CLI (rawtherapee-cli)
+#
+# macOS note: always verify with rawtherapee-cli -h. If it exits with
+# 133 / SIGTRAP, macOS likely blocked it before startup. This is common when
+# an agent installs RawTherapee via Homebrew and the user has not explicitly
+# opened/authorized the app or CLI yet. A user-installed and authorized
+# Homebrew CLI can work; otherwise use the official standalone CLI.
 # ─────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -27,20 +33,40 @@ echo -e "${BOLD}检查 RawTherapee CLI...${NC}"
 echo ""
 
 if command -v rawtherapee-cli &>/dev/null; then
-    RT_VER=$(rawtherapee-cli --version 2>&1 | head -1 || echo "unknown")
-    echo -e "  ${GREEN}✓${NC} rawtherapee-cli ($RT_VER)"
-    HAS_RT=true
+    RT_PATH=$(command -v rawtherapee-cli)
+    set +e
+    RT_HELP_OUTPUT=$("$RT_PATH" -h 2>&1)
+    RT_RC=$?
+    set -e
+
+    if echo "$RT_HELP_OUTPUT" | grep -qi "RawTherapee, version" && echo "$RT_HELP_OUTPUT" | grep -qi "command line"; then
+        RT_VER=$(echo "$RT_HELP_OUTPUT" | head -1)
+        echo -e "  ${GREEN}✓${NC} rawtherapee-cli ($RT_VER)"
+        HAS_RT=true
+    else
+        echo -e "  ${RED}✗${NC} rawtherapee-cli 找到但不可用: $RT_PATH"
+        if [[ "$RT_RC" == "133" ]] || echo "$RT_HELP_OUTPUT" | grep -Eiq "SIGTRAP|trace trap"; then
+            echo "       原因: exit 133 / SIGTRAP，常见于 macOS CLI 包签名或公证异常"
+        elif [[ "$RT_RC" == "132" ]] || echo "$RT_HELP_OUTPUT" | grep -Eiq "SIGILL|illegal instruction"; then
+            echo "       原因: exit 132 / SIGILL，可能是 CLI 构建与当前 CPU/系统不兼容"
+        else
+            echo "       原因: rawtherapee-cli -h 未输出有效命令行帮助（exit=$RT_RC）"
+            echo "$RT_HELP_OUTPUT" | tail -3 | sed 's/^/       /'
+        fi
+        echo "       请安装官网包中的独立 rawtherapee-cli，并确认: rawtherapee-cli -h"
+        ALL_OK=false
+    fi
 elif command -v rawtherapee &>/dev/null; then
     RT_PATH=$(command -v rawtherapee)
     echo -e "  ${YELLOW}⚠${NC} 找到 rawtherapee GUI ($RT_PATH)，但未找到 rawtherapee-cli"
-    echo -e "       确认安装了 rawtherapee-cli 包（不是仅 GUI 版本）"
+    echo -e "       确认 rawtherapee-cli 已放入 PATH；macOS 下 Homebrew 安装后可能需要用户手动打开/授权"
     ALL_OK=false
 else
     echo -e "  ${RED}✗${NC} rawtherapee-cli — 未安装（必须安装）"
-    echo "       安装: brew install --cask rawtherapee (macOS)"
-    echo "            sudo apt install rawtherapee-cli (Debian/Ubuntu)"
-    echo "            sudo dnf install RawTherapee (Fedora/RHEL)"
-    echo "       或使用 Docker: docker pull lscr.io/linuxserver/rawtherapee:latest"
+    echo "       macOS: 可用 Homebrew（需用户手动打开/授权）或官网独立 rawtherapee-cli，并放入 PATH"
+    echo "       Debian/Ubuntu: sudo apt install rawtherapee-cli"
+    echo "       Fedora/RHEL: sudo dnf install RawTherapee"
+    echo "       验证: rawtherapee-cli -h"
     ALL_OK=false
 fi
 
@@ -84,7 +110,8 @@ echo ""
 echo -e "${YELLOW}缺少 rawtherapee-cli，请手动安装：${NC}"
 echo ""
 if [[ "$(uname)" == "Darwin" ]]; then
-    echo "  brew install --cask rawtherapee"
+    echo "  可用 Homebrew（需用户手动打开/授权）或官网独立 rawtherapee-cli，并放入 PATH"
+    echo "  安装后验证: rawtherapee-cli -h"
 elif command -v dnf &>/dev/null; then
     echo "  sudo dnf install -y RawTherapee"
 else

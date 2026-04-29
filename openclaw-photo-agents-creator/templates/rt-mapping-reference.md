@@ -3,25 +3,27 @@
 > 以下映射由 `grade.py` 的 `rt_map_*()` 函数实现。Curator 输出 Lightroom 标准参数，引擎自动转换。
 > RT PP3 使用 (section, key) 格式，键名与 RawTherapee 实际格式一致。
 
-| LR 参数          | RT PP3 Section.Key                                        | 映射行为                                     |
-| ---------------- | --------------------------------------------------------- | -------------------------------------------- |
-| exposure         | Exposure.Compensation                                     | x2.0 放大；负曝光同时提黑位 (Exposure.Black) |
-| contrast         | Exposure.Contrast                                         | x0.8 缩放（RT 对比度更激进）                 |
-| highlights (+)   | Exposure.HighlightCompr                                   | 正值 → HighlightCompr                        |
-| highlights (-)   | HLRecovery.Enabled/Method/Hlbl                            | 负值 → 高光恢复 (Coloropp 方法)              |
-| shadows (+)      | Exposure.ShadowCompr                                      | 正值 → ShadowCompr                           |
-| shadows (-)      | Shadows & Highlights.Enabled/Shadows                      | 负值 → 阴影恢复                              |
-| temp_offset      | White Balance.Temperature                                 | x0.5 偏移量                                  |
-| tint_offset      | White Balance.Green                                       | 1.0 + tint × 0.005                           |
-| vibrance         | Vibrance.Enabled/Pastels                                  | x0.9 缩放                                    |
-| saturation       | Vibrance.Enabled/Saturated                                | x0.7 缩放                                    |
-| tone_curve       | Exposure.Curve/CurveMode                                  | 10 点 CubicSpline 曲线                       |
-| hsl (8 channels) | HSV Equalizer.Enabled/HueCurve/SatCurve/ValCurve          | 通道映射到色相环位置，生成 CubicSpline 曲线  |
-| color_grading    | Color Toning.Enabled/Method/Shadows*\*/Highlights*\*      | Splitlr 方法；midtone → AutoCorrection       |
-| sharpen          | Sharpening.Enabled/Method/DeconvRadius/DeconvAmount       | RL Deconvolution；amount x1.5，radius × 0.75 |
-| noise_reduction  | Directional Pyramid Denoising.Enabled/Luma/Chroma/Ldetail | Lab 方法；gamma 1.4                          |
-| vignette_amount  | Vignetting Correction.Amount/Radius/Strength              | abs(x) × 1.5                                 |
-| grain_amount     | _(RT 无内置颗粒模块)_                                     | 记录为注释；无法映射到 RT                    |
+| LR 参数            | RT PP3 Section.Key                                        | 映射行为                                             |
+| ------------------ | --------------------------------------------------------- | ---------------------------------------------------- |
+| exposure           | Exposure.Compensation                                     | x2.0 放大；负曝光同时提黑位 (Exposure.Black)         |
+| contrast           | Exposure.Contrast                                         | x0.8 缩放（RT 对比度更激进）                         |
+| highlights (+)     | Exposure.HighlightCompr                                   | 正值 → HighlightCompr                                |
+| highlights (-)     | HLRecovery.Enabled/Method/Hlbl                            | 负值 → 高光恢复 (Coloropp 方法)                      |
+| shadows (+)        | Exposure.ShadowCompr                                      | 正值 → ShadowCompr                                   |
+| shadows (-)        | Shadows & Highlights.Enabled/Shadows                      | 负值 → 阴影恢复                                      |
+| temp_offset        | _(不直接映射)_                                            | RT 需要绝对色温，禁止写成 Temperature=5.0 这类偏移值 |
+| temperature_kelvin | White Balance.Temperature                                 | 绝对色温，安全范围 2000~25000K                       |
+| green              | White Balance.Green                                       | 绝对 Green 倍率，安全范围 0.5~2.0                    |
+| tint_offset        | White Balance.Green                                       | 未设置 green 时，1.0 + tint × 0.005 并钳位到 0.5~2.0 |
+| vibrance           | Vibrance.Enabled/Pastels                                  | x0.9 缩放                                            |
+| saturation         | Vibrance.Enabled/Saturated                                | x0.7 缩放                                            |
+| tone_curve         | Exposure.Curve/CurveMode                                  | 10 点 CubicSpline 曲线                               |
+| hsl (8 channels)   | HSV Equalizer.Enabled/HueCurve/SatCurve/ValCurve          | 通道映射到色相环位置，生成 CubicSpline 曲线          |
+| color_grading      | Color Toning.Enabled/Method/Shadows*\*/Highlights*\*      | Splitlr 方法；midtone → AutoCorrection               |
+| sharpen            | Sharpening.Enabled/Method/DeconvRadius/DeconvAmount       | RL Deconvolution；amount x1.5，radius × 0.75         |
+| noise_reduction    | Directional Pyramid Denoising.Enabled/Luma/Chroma/Ldetail | Lab 方法；gamma 1.4                                  |
+| vignette_amount    | Vignetting Correction.Amount/Radius/Strength              | abs(x) × 1.5                                         |
+| grain_amount       | _(RT 无内置颗粒模块)_                                     | 记录为注释；无法映射到 RT                            |
 
 ### RT Section 与 PP3 键名对照
 

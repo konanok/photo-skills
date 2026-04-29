@@ -18,7 +18,7 @@ description: |
   or uniform grading for timelapse sequences.
 
   Dependencies:
-    RawTherapee CLI: brew install --cask rawtherapee (macOS) / apt install rawtherapee-cli (Debian)
+    RawTherapee CLI: rawtherapee-cli in PATH (macOS; Homebrew works after user authorization, otherwise use official standalone CLI) / apt install rawtherapee-cli (Debian)
     Check: bash scripts/setup_deps.sh
 
   Workflow:
@@ -78,7 +78,9 @@ source .venv/bin/activate
 
 ```bash
 # macOS
-brew install --cask rawtherapee
+# Install RawTherapee from the official package, then copy the standalone
+# rawtherapee-cli into a directory in PATH (for example ~/.local/bin).
+rawtherapee-cli -h  # verify it prints "RawTherapee, version ..., command line"
 
 # Debian / Ubuntu
 sudo apt install rawtherapee-cli
@@ -86,6 +88,8 @@ sudo apt install rawtherapee-cli
 # Fedora / RHEL
 sudo dnf install RawTherapee
 ```
+
+> macOS note: always verify with `rawtherapee-cli -h`. If it exits with `133` / `SIGTRAP`, macOS likely blocked it before startup. This is common when an agent installs RawTherapee via Homebrew and the user has not explicitly opened/authorized the app or CLI yet. A user-installed and authorized Homebrew CLI can work; otherwise use the official standalone `rawtherapee-cli` from the RawTherapee package.
 
 ## Configuration
 

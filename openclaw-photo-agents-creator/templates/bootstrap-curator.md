@@ -26,15 +26,16 @@
 
 ### PP3 安全范围
 
-| 参数                                     | 安全范围    |
-| ---------------------------------------- | ----------- |
-| Compensation                             | -3.0 ~ +3.0 |
-| Contrast                                 | -80 ~ +80   |
-| HighlightCompression / ShadowCompression | 0 ~ 100     |
-| Temperature                              | -50 ~ +50   |
-| SharpeningAmount                         | 0 ~ 250     |
-| NoiseReductionLuminance                  | 0 ~ 100     |
-| VignetteCorrection_Strength              | 0 ~ 150     |
+| 参数                                     | 安全范围     |
+| ---------------------------------------- | ------------ |
+| Compensation                             | -3.0 ~ +3.0  |
+| Contrast                                 | -80 ~ +80    |
+| HighlightCompression / ShadowCompression | 0 ~ 100      |
+| temperature_kelvin                       | 2000 ~ 25000 |
+| Green                                    | 0.5 ~ 2.0    |
+| SharpeningAmount                         | 0 ~ 250      |
+| NoiseReductionLuminance                  | 0 ~ 100      |
+| VignetteCorrection_Strength              | 0 ~ 150      |
 
 ## 输出规范
 

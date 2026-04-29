@@ -43,7 +43,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "photo-toolkit" / "scripts"))
 from file_matcher import find_file_by_stem, find_raw_file, SUPPORTED_EXTENSIONS
 
-
 # ── Configuration ───────────────────────────────────────────────
 
 try:
@@ -111,18 +110,64 @@ def find_rawtherapee_cli(cli_path=None):
     return None
 
 
+def _rt_cli_install_hint():
+    if sys.platform == "darwin":
+        # Always verify the CLI on macOS. If an agent installed RawTherapee via
+        # Homebrew and the user has not explicitly opened/authorized it yet,
+        # macOS may block startup with 133 / SIGTRAP. A user-authorized
+        # Homebrew CLI can work; otherwise use the official standalone CLI.
+        return (
+            "Verify with rawtherapee-cli -h. If macOS blocks a Homebrew-installed CLI, "
+            "open/authorize it manually or use the official standalone rawtherapee-cli in PATH"
+        )
+    return "Install: apt install rawtherapee-cli (Debian/Ubuntu) / dnf install RawTherapee (Fedora/RHEL)"
+
+
+def _validate_rt_cli_executable(rt):
+    """Run a lightweight smoke test to ensure rawtherapee-cli can actually start."""
+    try:
+        result = subprocess.run([rt, "-h"], capture_output=True, text=True, timeout=15)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return False, f"failed to start: {e}"
+
+    output = f"{result.stdout}\n{result.stderr}"
+    output_lower = output.lower()
+    if "rawtherapee, version" in output_lower and "command line" in output_lower:
+        return True, output.splitlines()[0] if output.splitlines() else "RawTherapee CLI"
+
+    if result.returncode == 133 or "sigtrap" in output_lower or "trace trap" in output_lower:
+        return False, "exited with 133 (SIGTRAP / trace trap), often macOS blocking an unapproved CLI before startup"
+    if result.returncode == 132 or "sigill" in output_lower or "illegal instruction" in output_lower:
+        return False, "exited with 132 (SIGILL / illegal instruction), usually an incompatible macOS CLI build"
+
+    if result.returncode != 0:
+        tail = output.strip().splitlines()[-1] if output.strip() else f"exit code {result.returncode}"
+        return False, tail
+
+    return (
+        False,
+        "executable did not print RawTherapee command-line help; make sure this is rawtherapee-cli, not the GUI binary",
+    )
+
+
 def check_rt_cli(config=None):
-    """Check that rawtherapee-cli is available. Exit if not."""
+    """Check that rawtherapee-cli is available and can start successfully."""
     cfg = config or {}
     rt = find_rawtherapee_cli(cfg.get("rawtherapee_cli", ""))
     if not rt:
         print("❌ RawTherapee CLI not found.", file=sys.stderr)
-        print(
-            "   Install: brew install --cask rawtherapee (macOS) / apt install rawtherapee-cli (Debian)",
-            file=sys.stderr,
-        )
+        print(f"   {_rt_cli_install_hint()}", file=sys.stderr)
         sys.exit(1)
-    print(f"✓ Engine: RawTherapee ({rt})")
+
+    ok, message = _validate_rt_cli_executable(rt)
+    if not ok:
+        print(f"❌ RawTherapee CLI is not usable: {rt}", file=sys.stderr)
+        print(f"   Reason: {message}", file=sys.stderr)
+        print(f"   Verify manually with: {rt} -h", file=sys.stderr)
+        print(f"   {_rt_cli_install_hint()}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"✓ Engine: RawTherapee ({rt}) — {message}")
     return rt
 
 
@@ -185,15 +230,35 @@ def rt_map_tone_compression(pp3, basic):
 
 
 def rt_map_whitebalance(pp3, basic):
-    """Map LR temp_offset/tint_offset → RT White Balance.Temperature/Green."""
-    temp = basic.get("temp_offset", 0)
+    """Map explicit RawTherapee white balance values.
+
+    Lightroom-style temp_offset is intentionally not mapped to RT Temperature:
+    RawTherapee expects an absolute Kelvin value, not a relative offset.
+    Use temperature_kelvin for absolute WB, and green for RT's green multiplier.
+    """
+    temp_kelvin = basic.get("temperature_kelvin")
+    green = basic.get("green")
     tint = basic.get("tint_offset", 0)
-    if abs(temp) < 0.5 and abs(tint) < 0.5:
-        return
-    if abs(temp) >= 0.5:
-        pp3[("White Balance", "Temperature")] = round(temp * 0.5, 1)
-    if abs(tint) >= 0.5:
-        pp3[("White Balance", "Green")] = round(1.0 + tint * 0.005, 3)
+
+    if temp_kelvin is not None:
+        try:
+            temp_kelvin = float(temp_kelvin)
+        except (TypeError, ValueError) as e:
+            raise ValueError("temperature_kelvin must be a number") from e
+        if not 2000 <= temp_kelvin <= 25000:
+            raise ValueError("temperature_kelvin must be between 2000 and 25000")
+        pp3[("White Balance", "Temperature")] = int(round(temp_kelvin))
+
+    if green is not None:
+        try:
+            green = float(green)
+        except (TypeError, ValueError) as e:
+            raise ValueError("green must be a number") from e
+        if not 0.5 <= green <= 2.0:
+            raise ValueError("green must be between 0.5 and 2.0")
+        pp3[("White Balance", "Green")] = round(green, 3)
+    elif abs(tint) >= 0.5:
+        pp3[("White Balance", "Green")] = round(rt_clamp_f(1.0 + tint * 0.005, 0.5, 2.0), 3)
 
 
 def rt_map_vibrance_saturation(pp3, basic):

@@ -139,6 +139,18 @@ PhotoArtist
   12. 展示结果
 ```
 
+## 依赖初始化注意事项
+
+创建脚本会运行各 photo skill 的 `setup_deps.sh`，并汇总失败项。若 `photo-grader` 初始化失败，需要先确认 `rawtherapee-cli` 可用。
+
+macOS 下先确认 `rawtherapee-cli` 已被用户显式打开/授权，然后运行：
+
+```bash
+rawtherapee-cli -h
+```
+
+如果 CLI 以 `133` / `SIGTRAP` 退出，通常表示它在启动前被 macOS 安全机制拦截。Agent 自动通过 Homebrew 安装后，用户往往还没有手动打开/授权该应用或 CLI，因此更容易触发拦截；用户自己提前通过 Homebrew 安装并完成授权也可以使用。无法完成授权时，改用官网包中的独立 CLI 后再重新运行 `photo-grader/scripts/setup_deps.sh`。
+
 ## 模板文件
 
 Agent 配置文件模板位于 `templates/`：

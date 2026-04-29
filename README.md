@@ -136,17 +136,18 @@ python3 photo-toolkit/scripts/assemble.py ~/Photos/graded \
 
 ## System Requirements
 
-| Requirement     | Details                                                                                                      |
-| --------------- | ------------------------------------------------------------------------------------------------------------ |
-| **Python**      | 3.8+                                                                                                         |
-| **RawTherapee** | `brew install --cask rawtherapee` (macOS) / `apt install rawtherapee-cli` (Debian). Required by photo-grader |
-| **libraw**      | `brew install libraw` (macOS) / `apt-get install libraw-dev` (Debian). Required by photo-toolkit             |
-| **PyTorch**     | Required by photo-screener only. CPU is sufficient for MobileCLIP2-S0                                        |
-| **FFmpeg**      | Required by `assemble.py` for video encoding. `brew install ffmpeg` / `apt-get install ffmpeg`               |
-| **Disk**        | ~300MB for MobileCLIP2-S0 model (downloaded on first run of screener)                                        |
+| Requirement     | Details                                                                                                                                                                                                                  |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Python**      | 3.8+                                                                                                                                                                                                                     |
+| **RawTherapee** | `rawtherapee-cli` in `PATH` (macOS; Homebrew is OK after user authorization, otherwise use official standalone CLI; verify with `rawtherapee-cli -h`) / `apt install rawtherapee-cli` (Debian). Required by photo-grader |
+| **libraw**      | `brew install libraw` (macOS) / `apt-get install libraw-dev` (Debian). Required by photo-toolkit                                                                                                                         |
+| **PyTorch**     | Required by photo-screener only. CPU is sufficient for MobileCLIP2-S0                                                                                                                                                    |
+| **FFmpeg**      | Required by `assemble.py` for video encoding. `brew install ffmpeg` / `apt-get install ffmpeg`                                                                                                                           |
+| **Disk**        | ~300MB for MobileCLIP2-S0 model (downloaded on first run of screener)                                                                                                                                                    |
 
 ## Important Notes
 
+- **macOS RawTherapee CLI**: Always verify with `rawtherapee-cli -h`. If it exits with `133` / `SIGTRAP`, macOS likely blocked it before startup. This is common when an agent installs RawTherapee via Homebrew and the user has not explicitly opened/authorized the app or CLI yet. A user-installed and authorized Homebrew CLI can work; otherwise use the official standalone `rawtherapee-cli` in `PATH`.
 - **Config before use**: Copy `config.example.toml` to `config.toml` for each skill and set your directories. Config files are gitignored.
 - **Thumbnails next to RAW**: `convert.py` defaults to outputting thumbnails in `{input}/thumbnails/`, keeping them alongside your original files.
 - **RAW vs JPG/HEIC grading**: RAW files provide full 16-bit editing latitude. JPG/HEIC are 8-bit — keep exposure adjustments conservative.

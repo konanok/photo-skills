@@ -90,7 +90,7 @@ python3 scripts/create_agents.py \
 1. **注册 Agent**：通过 `openclaw agents add` 注册两个 Agent 到 OpenClaw
 2. **写入 BOOTSTRAP.md**：渲染模板并写入种子文件（Artist 的含完整工作流约束，Curator 的含输出规范）
 3. **复制 Skills**：将三个 photo skill 复制到 Artist 工作区的 `skills/` 目录
-4. **安装依赖**：自动运行各 skill 的 `setup_deps.sh` 安装依赖
+4. **安装依赖**：自动运行各 skill 的 `setup_deps.sh` 检查依赖；失败时必须提示用户先修复，不可静默继续
 5. **创建合并配置**：在 `skills/config.toml` 生成合并配置，统一所有 skill 的输入输出路径
 6. **注入 LR→RT 映射**：Curator 的调色 prompt 自动注入 `rt-mapping-reference.md` 内容
 
@@ -121,7 +121,7 @@ python3 scripts/create_agents.py \
 pip3 install torch open-clip-torch
 ```
 
-其他 skill 的系统依赖已在脚本执行期间通过 `setup_deps.sh` 检查并提示安装。如果用户选择跳过 AI 选片功能（仅使用格式转换和调色），可暂不安装以上包。
+其他 skill 的系统依赖已在脚本执行期间通过 `setup_deps.sh` 检查并尝试安装；如果脚本执行失败，必须提示用户手动修复后再使用对应功能。如果 `photo-grader` 初始化失败，尤其是在 macOS 下出现 `rawtherapee-cli` 的 `133` / `SIGTRAP`，需要先用 `rawtherapee-cli -h` 验证 CLI 是否已被用户显式打开/授权。Agent 自动通过 Homebrew 安装后，用户通常还没有手动打开或授权该应用/CLI，可能会被 macOS 安全机制拦截；但如果用户自己提前通过 Homebrew 安装并完成授权，也可以继续使用。如果无法完成授权，建议改用官网包中的独立 `rawtherapee-cli` 并放入 `PATH`。如果用户选择跳过 AI 选片功能（仅使用格式转换和调色），可暂不安装以上包。
 
 > 引导方式示例：
 >
