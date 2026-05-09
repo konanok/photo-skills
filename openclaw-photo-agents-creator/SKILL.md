@@ -223,6 +223,10 @@ output_dir = "/path/to/output"
 openclaw gateway restart
 ```
 
+> ⚠️ **如果你是 OpenClaw 内的 agent（self-mode）**：**不要自己执行这条命令**——你是 gateway 托管的进程，自重启会切断当前会话。请将命令交给用户在另一个终端执行，并提示用户：「重启会切断当前会话，请重启后在新会话里再次发起对话即可。」
+>
+> 外部 AI（Claude Code / Codex / CodeBuddy / Cursor 等）不受此限制，可直接执行，但执行前向用户口头确认一次。
+
 ### Step 5: 开始使用
 
 ```bash

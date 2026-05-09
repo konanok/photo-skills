@@ -189,9 +189,11 @@ photo-skills/
         └── setup_deps.sh
 ```
 
-## 快速创建 OpenClaw Agent
+## 部署到 OpenClaw
 
-详细说明请查看 [openclaw-photo-agents-creator/README.md](openclaw-photo-agents-creator/README.md)。
+详见 [INSTALL.md](./INSTALL.md) —— 一份**面向 AI、对人类也友好**的安装指引，指导 AI（Claude Code / CodeBuddy / Cursor 等）将本仓库 clone 到 `~/.openclaw/skills/photo-skills`，然后通过 `openclaw-photo-agents-creator` 一键部署双 Agent 摄影工作流。
+
+底层 creator skill 的详细参数说明，请查看 [openclaw-photo-agents-creator/README.md](openclaw-photo-agents-creator/README.md)。
 
 ## 单 Skill 模式（不推荐）
 

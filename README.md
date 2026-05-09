@@ -189,9 +189,11 @@ photo-skills/
         └── setup_deps.sh
 ```
 
-## Quickly Create OpenClaw Agents
+## Install on OpenClaw
 
-See [openclaw-photo-agents-creator/README.md](openclaw-photo-agents-creator/README.md) for details.
+See [INSTALL.md](./INSTALL.md) — an AI-first, human-friendly guide that walks an AI assistant (Claude Code / CodeBuddy / Cursor / ...) through cloning this repo into `~/.openclaw/skills/photo-skills` and invoking `openclaw-photo-agents-creator` to deploy the dual-agent photo workflow end-to-end.
+
+For the underlying creator skill, see [openclaw-photo-agents-creator/README.md](openclaw-photo-agents-creator/README.md).
 
 ## Single Skill Mode (Not Recommended)
 
