@@ -1,5 +1,6 @@
 ---
 name: photo-grader
+version: 1.0.0
 description: |
   Apply professional-grade color grading to camera RAW/JPG/HEIC photos.
   Uses RawTherapee CLI as the sole processing engine.

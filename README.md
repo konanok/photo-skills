@@ -231,6 +231,10 @@ This project includes a dev container configuration for VS Code / GitHub Codespa
 
 To add a new skill, create a directory with your scripts, provide `config.example.toml` and `setup_deps.sh`, then register it in `openclaw-photo-agents-creator/`.
 
+## Maintainers
+
+For releasing and updating skills on [ClawHub](https://clawhub.ai), see [RELEASING.md](./RELEASING.md).
+
 ## License
 
 MIT

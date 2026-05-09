@@ -1,0 +1,27 @@
+name: Version Check
+
+on:
+  pull_request:
+    paths:
+      - "photo-toolkit/**"
+      - "photo-screener/**"
+      - "photo-grader/**"
+      - "openclaw-photo-agents-creator/**"
+      - "scripts/sync_versions.sh"
+      - ".github/workflows/version-check.yml"
+  push:
+    branches: [master, main]
+
+jobs:
+  check:
+    name: SKILL.md frontmatter version ↔ VERSION file
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2 # version-check 需要 HEAD 作 baseline
+
+      - name: Run sync_versions.sh --check
+        env:
+          NO_COLOR: "1"
+        run: bash scripts/sync_versions.sh --check

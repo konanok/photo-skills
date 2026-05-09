@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# pre-commit hook — 拦截 SKILL.md frontmatter version 与 VERSION 文件的不一致。
+#
+# 启用方式：bash scripts/install_hooks.sh
+# 绕过：git commit --no-verify （仅在确知后果时使用）
+#
+# 行为：
+# - 跑 scripts/sync_versions.sh（默认 sync 模式）
+# - 如果脚本返回非 0（冲突/历史漂移/缺文件），拒绝 commit
+# - 如果脚本修复了不一致（场景 2 / 3），修复结果会被 git add 进本次 commit
+
+set -e
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+SYNC_SCRIPT="$REPO_ROOT/scripts/sync_versions.sh"
+
+if [[ ! -x "$SYNC_SCRIPT" ]]; then
+    # 如果脚本不存在（比如旧分支），不阻塞 commit
+    exit 0
+fi
+
+if ! bash "$SYNC_SCRIPT"; then
+    echo
+    echo "✗ pre-commit: version sync failed; commit rejected." >&2
+    echo "  resolve manually, then commit again." >&2
+    echo "  to bypass (NOT recommended): git commit --no-verify" >&2
+    exit 1
+fi
+
+exit 0

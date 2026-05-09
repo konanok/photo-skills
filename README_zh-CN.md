@@ -231,6 +231,10 @@ bash .allinone-skill/merge.sh --revert
 
 如需新增 skill，创建目录并放入脚本，提供 `config.example.toml` 和 `setup_deps.sh`，然后在 `openclaw-photo-agents-creator/` 中注册即可。
 
+## 维护者
+
+向 [ClawHub](https://clawhub.ai) 发布与更新 skill 的流程，请参考 [RELEASING.md](./RELEASING.md)。
+
 ## 许可证
 
 MIT

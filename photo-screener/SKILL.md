@@ -1,5 +1,6 @@
 ---
 name: photo-screener
+version: 1.0.0
 description: |
   AI-powered photo pre-screening using MobileCLIP2-S0 model.
   18x faster than ViT-L/14 with 80% selection consistency (Top-10 overlap 8/10).

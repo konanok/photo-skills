@@ -1,5 +1,6 @@
 ---
 name: photo-toolkit
+version: 1.0.0
 description: |
   Photography utility toolkit: convert RAW/JPG/HEIC to thumbnails, find photos by shooting date,
   generate layout previews, deflicker timelapse frames, and assemble video.

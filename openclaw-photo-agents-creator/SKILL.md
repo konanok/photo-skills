@@ -1,5 +1,6 @@
 ---
 name: openclaw-photo-agents-creator
+version: 1.0.0
 description: |
   自动创建 OpenClaw 双 Agent 摄影工作流系统。
 
