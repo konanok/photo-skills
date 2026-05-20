@@ -10,15 +10,18 @@
 #
 # 用法：
 #   bash scripts/publish.sh <skill-name>                       发布
-#   bash scripts/publish.sh <skill-name> --dry-run             干跑
 #   bash scripts/publish.sh <skill-name> --changelog "..."     显式 changelog
 #   bash scripts/publish.sh <skill-name> --skip-version-check  跳过 ClawHub 查重
+#   bash scripts/publish.sh <skill-name> --owner <handle>      发布到指定 owner（org/publisher）
 #
 # <skill-name> 必须是 4 个之一：
 #   photo-toolkit / photo-screener / photo-grader / openclaw-photo-agents-creator
 #
+# 注意：clawhub skill publish 当前 CLI（v0.17.x）不支持 --dry-run。
+# 如需预演，建议先在私有/测试 owner 下跑一次，或人工 review SKILL.md / VERSION 后再发。
+#
 # 退出码：
-#   0  发布成功 / dry-run 通过
+#   0  发布成功
 #   1  版本一致性失败 / 版本已存在于 ClawHub
 #   2  参数错误 / 文件缺失 / clawhub CLI 未安装
 
@@ -55,16 +58,12 @@ KNOWN_SKILLS=(
 
 # -------- 参数解析 --------
 SKILL=""
-DRY_RUN=false
 CHANGELOG_OVERRIDE=""
 SKIP_VERSION_CHECK=false
+OWNER=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-    --dry-run)
-        DRY_RUN=true
-        shift
-        ;;
     --changelog)
         CHANGELOG_OVERRIDE="$2"
         shift 2
@@ -75,6 +74,14 @@ while [[ $# -gt 0 ]]; do
         ;;
     --skip-version-check)
         SKIP_VERSION_CHECK=true
+        shift
+        ;;
+    --owner)
+        OWNER="$2"
+        shift 2
+        ;;
+    --owner=*)
+        OWNER="${1#*=}"
         shift
         ;;
     -h | --help)
@@ -169,17 +176,25 @@ elif ! command -v clawhub >/dev/null 2>&1; then
     err "clawhub CLI not found. install: npm i -g clawhub"
     exit 2
 else
-    # 尝试拿已发布的版本列表。clawhub inspect 输出格式不固定，宽松匹配。
-    # owner 由 clawhub login 决定，slug = 文件夹名
-    inspect_output="$(clawhub inspect "$SKILL" --versions 2>&1 || true)"
-    if echo "$inspect_output" | grep -qE "(not found|404|no such)"; then
+    # 用 --json 拿版本历史，结构化判断
+    inspect_json="$(clawhub inspect "$SKILL" --versions --json 2>&1 || true)"
+    # 失败/未发布 → 通常 stderr 含 "not found" / "404"
+    if echo "$inspect_json" | grep -qiE "(not found|404|no such|does not exist)"; then
         info "skill '$SKILL' is not yet on ClawHub (first publish)"
-    elif echo "$inspect_output" | grep -qE "(^|[^0-9])${VERSION//./\\.}([^0-9]|$)"; then
+    elif command -v python3 >/dev/null 2>&1 &&
+        echo "$inspect_json" | python3 -c "import json,sys; d=json.load(sys.stdin); sys.exit(1 if any(v.get('version','')=='$VERSION' for v in (d.get('versions') or d if isinstance(d,list) else [])) else 0)" 2>/dev/null; then
+        ok "version $VERSION not yet published"
+    elif echo "$inspect_json" | grep -qE '"version"[[:space:]]*:[[:space:]]*"'"${VERSION//./\\.}"'"'; then
         err "version $VERSION already exists on ClawHub for $SKILL"
-        echo "    bump the version in $SKILL/SKILL.md (and run: bash scripts/sync_versions.sh)" >&2
+        echo "    bump the version in $SKILL/SKILL.md, then re-run." >&2
         exit 1
     else
-        ok "version $VERSION not yet published"
+        # 兜底：能拿到 inspect 输出且未匹配到目标版本 → 视为可发
+        if [[ -n "$inspect_json" ]]; then
+            ok "version $VERSION not detected in existing releases"
+        else
+            warn "could not query ClawHub; proceeding cautiously"
+        fi
     fi
 fi
 
@@ -195,8 +210,7 @@ else
         warn "$CHANGELOG_FILE not found"
         CHANGELOG="Release $VERSION"
     else
-        # 提取 [VERSION] ... 直到下一个 [x.y.z] 或文件末
-        # 然后只保留该 skill 相关的子段（按 ### <skill> 分组）；如果没有 skill 子段，用整段
+        # 提取 [VERSION] 段，到下一个 [x.y.z] 为止
         full_section="$(awk -v ver="$VERSION" '
             /^## *\['"$VERSION"'\]/ { found=1; next }
             found && /^## *\[/ { exit }
@@ -231,10 +245,13 @@ echo "---------------------"
 # -------- Step 5: 发布 --------
 echo
 echo "${C_BOLD}[5/5]${C_OFF} publishing..."
-PUBLISH_ARGS=(skill publish "./$SKILL" --version "$VERSION" --changelog "$CHANGELOG")
-if $DRY_RUN; then
-    PUBLISH_ARGS+=(--dry-run)
-    info "DRY RUN — no actual publish"
+# NOTE: --changelog uses the "--flag=value" form because commander.js (the
+# parser used by clawhub CLI) splits multiline values starting with "-" into
+# what looks like new flags when the value is passed as a separate argument.
+# The "=" form binds the entire value to --changelog unambiguously.
+PUBLISH_ARGS=(skill publish "./$SKILL" --slug "$SKILL" --version "$VERSION" "--changelog=$CHANGELOG")
+if [[ -n "$OWNER" ]]; then
+    PUBLISH_ARGS+=(--owner "$OWNER")
 fi
 
 echo "+ clawhub ${PUBLISH_ARGS[*]}"
@@ -245,8 +262,4 @@ fi
 clawhub "${PUBLISH_ARGS[@]}"
 
 echo
-if $DRY_RUN; then
-    ok "dry-run complete for $SKILL@$VERSION"
-else
-    ok "published $SKILL@$VERSION to ClawHub"
-fi
+ok "published $SKILL@$VERSION to ClawHub"

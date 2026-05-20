@@ -51,3 +51,4 @@ filter_report.json
 
 # 不需要提交的临时文件
 .tmp/
+.note-distill.json

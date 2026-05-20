@@ -29,6 +29,14 @@ description: |
   4. Run `grade.py` to batch-apply grading via RawTherapee
 
   ⚠️ IMPORTANT: Use photo_curator_prompt.md V3 (NOT v1/v2). V3 uses Lightroom-standard params with auto-mapping.
+metadata:
+  openclaw:
+    homepage: https://github.com/konanok/photo-skills
+    emoji: "🎨"
+    requires:
+      bins:
+        - python3
+        - rawtherapee-cli
 ---
 
 # Photo Grader

@@ -14,6 +14,14 @@ description: |
 
   Triggers: User mentions creating OpenClaw agents, setting up photo workflow,
   deploying photographer agent, auto photo grading system.
+metadata:
+  openclaw:
+    homepage: https://github.com/konanok/photo-skills
+    emoji: "🎬"
+    requires:
+      bins:
+        - python3
+        - openclaw
 ---
 
 # OpenClaw Photo Agents Creator

@@ -28,6 +28,13 @@ description: |
     - Non-interactive mode: exits with manual download instructions
     - Uses HuggingFace mirror (hf-mirror.com) for China acceleration
     - Add --auto-download to skip confirmation
+metadata:
+  openclaw:
+    homepage: https://github.com/konanok/photo-skills
+    emoji: "🔍"
+    requires:
+      bins:
+        - python3
 ---
 
 # Photo Screener — MobileCLIP-powered Smart Pre-screening

@@ -1,0 +1,21 @@
+# Files to exclude from the ClawHub bundle.
+# ClawHub only accepts text-based files, so binary build artifacts must not be
+# shipped. This file is honored by `clawhub skill publish` and `clawhub sync`.
+
+# Python bytecode / build artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local user config (per CODEBUDDY.md, config.toml is gitignored anyway)
+config.toml
+
+# OS / editor cruft
+.DS_Store
+.idea/
+.vscode/
+
+# Local virtualenvs that may sit next to the skill
+.venv/
+venv/

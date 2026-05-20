@@ -26,6 +26,13 @@ description: |
     System: libraw (RedHat: dnf install LibRaw-devel / Debian: apt-get install libraw-dev)
     Python: rawpy, pillow, numpy, pillow-heif (optional, for HEIC/HEIF)
     Check: bash scripts/setup_deps.sh
+metadata:
+  openclaw:
+    homepage: https://github.com/konanok/photo-skills
+    emoji: "📸"
+    requires:
+      bins:
+        - python3
 ---
 
 # Photo Toolkit
