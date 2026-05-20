@@ -6,10 +6,15 @@
 #
 # 模式：
 #   sync_versions.sh                  默认 sync，按 dirty 状态智能同步；冲突时拒绝
-#   sync_versions.sh --check          只读校验，CI 用；任何不一致都退出 1
+#   sync_versions.sh --check          只读校验，CI 用；任何不一致 / changelog 段缺失都退出 1
 #   sync_versions.sh --force-from=skill     强制用 SKILL.md 覆盖 VERSION（解冲突）
 #   sync_versions.sh --force-from=version   强制用 VERSION 覆盖 SKILL.md（解冲突）
 #   sync_versions.sh <skill-dir>      只处理单个 skill 目录（可选）
+#
+# Changelog 校验（仅 check 模式生效）：
+#   当 SKILL.md 与 VERSION 一致时，额外要求 <skill>/CHANGELOG.md 中存在
+#   `## [<version>]` 段且非空。这保证发布前 release notes 已就位。
+#   sync 模式不校验，避免拦截开发者迭代过程中的中间状态。
 #
 # 退出码：
 #   0  全部一致 / sync 成功
@@ -121,6 +126,43 @@ extract_skill_version() {
 extract_version_file() {
     local ver_file="$1"
     awk 'NF { gsub(/[[:space:]]+$/, ""); print; exit }' "$ver_file"
+}
+
+# 校验 <skill>/CHANGELOG.md 中存在 `## [VERSION]` 段且段内非空。
+# 仅在 check 模式下被调用（sync 模式宽容，允许开发者迭代时尚未写 changelog）。
+#
+# 参数：$1 = skill 名（用于错误消息）, $2 = changelog 路径, $3 = version
+# 返回：0 = 段存在且非空；1 = 缺失或为空（同时往 stderr 打印理由到 $CHANGELOG_REASON）
+CHANGELOG_REASON=""
+check_changelog_section() {
+    local skill="$1"
+    local cl_file="$2"
+    local ver="$3"
+    CHANGELOG_REASON=""
+
+    if [[ ! -f "$cl_file" ]]; then
+        CHANGELOG_REASON="$skill/CHANGELOG.md not found"
+        return 1
+    fi
+
+    # 提取 ## [VERSION] 段（到下一个 ## [ 或文件末尾）
+    # awk 正则里 `.` `+` `*` 等是元字符，必须 escape 后再拼接，否则
+    # `1.0.0` 会匹配到 `1X0X0` 这种伪段（reviewer 实测发现的 Critical bug）。
+    local ver_esc
+    ver_esc="$(printf '%s' "$ver" | sed -e 's/[][\\\\.^$*+?(){}|]/\\\\&/g')"
+    local section
+    section="$(awk -v ver="$ver_esc" '
+        $0 ~ "^##[[:space:]]*\\[" ver "\\]" { found=1; next }
+        found && /^##[[:space:]]*\[/ { exit }
+        found { print }
+    ' "$cl_file")"
+
+    # 去掉空白后判断是否有内容
+    if [[ -z "$(echo "$section" | tr -d '[:space:]')" ]]; then
+        CHANGELOG_REASON="no \`## [$ver]\` section in $skill/CHANGELOG.md (or section is empty)"
+        return 1
+    fi
+    return 0
 }
 
 # 写入 SKILL.md frontmatter 的 version（替换或在 name 之后插入）
@@ -287,6 +329,16 @@ process_skill() {
 
     # ---- 一致性判定（check / sync 通用前半段）----
     if [[ "$s_ver" == "$v_ver" ]]; then
+        # check 模式叠加 changelog 段落校验：发布前必须有对应 release notes。
+        # sync 模式宽容（开发者可能正在迭代 frontmatter 但尚未写 changelog）。
+        if [[ "$MODE" == "check" ]]; then
+            local cl_file="$skill_dir/CHANGELOG.md"
+            if ! check_changelog_section "$skill" "$cl_file" "$s_ver"; then
+                REPORT_LINES+=("${C_RED}✗${C_OFF} ${skill}: ${s_ver} ${C_YELLOW}(changelog gap)${C_OFF} — $CHANGELOG_REASON")
+                : $((count_drift++))
+                return
+            fi
+        fi
         REPORT_LINES+=("${C_GREEN}✓${C_OFF} ${skill}: ${s_ver}")
         : $((count_pass++))
         return
