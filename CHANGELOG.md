@@ -18,4 +18,24 @@ Versioning rules and release flow live in [RELEASING.md](./RELEASING.md) (strate
 
 ### 2026-05-20 — Initial public release on [ClawHub](https://clawhub.ai)
 
-All four skills released at `1.0.0`. See the per-skill changelogs above for details.
+| Skill                         | ClawHub                                                                   | Status                        |
+| ----------------------------- | ------------------------------------------------------------------------- | ----------------------------- |
+| photo-toolkit                 | [konanok/photo-toolkit@1.0.0](https://clawhub.ai/konanok/photo-toolkit)   | published                     |
+| photo-screener                | [konanok/photo-screener@1.0.0](https://clawhub.ai/konanok/photo-screener) | published                     |
+| photo-grader                  | [konanok/photo-grader@1.0.0](https://clawhub.ai/konanok/photo-grader)     | published                     |
+| openclaw-photo-agents-creator | —                                                                         | not published, see note below |
+
+**`openclaw-photo-agents-creator` is not on ClawHub yet.** ClawHub reserves the
+`openclaw-` prefix and `-openclaw` suffix as a protected slug namespace for the
+official OpenClaw publisher. Our slug currently starts with `openclaw-` and
+gets rejected at publish time:
+
+> ✖ "openclaw-photo-agents-creator" uses the protected "openclaw" slug
+> namespace. Choose a slug that does not start with "openclaw-" or end
+> with "-openclaw".
+
+To unblock release we'll need to rename the skill — the leading candidate is
+`photo-agents-creator`, which also lines up nicely with the other three
+`photo-*` skills. That rename touches the directory name, `SKILL.md` `name`,
+several scripts, and inter-skill references in changelogs / READMEs, so it's
+deferred until we're ready to do it cleanly.

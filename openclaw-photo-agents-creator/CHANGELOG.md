@@ -8,7 +8,13 @@ This skill carries its own version per [strategy C in RELEASING.md](../RELEASING
 
 ## [1.0.0] - 2026-05-20
 
-Initial public release on [ClawHub](https://clawhub.ai).
+> **Not yet on ClawHub.** The initial publish attempt was rejected because
+> the slug `openclaw-photo-agents-creator` falls inside ClawHub's protected
+> `openclaw-` namespace. The feature set below is implemented and verified
+> locally; it will appear on ClawHub after a rename (leading candidate:
+> `photo-agents-creator`). See the root
+> [CHANGELOG.md](../CHANGELOG.md) "Cross-skill milestones" section for the
+> bigger picture.
 
 ### Added
 
