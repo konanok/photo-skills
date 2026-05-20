@@ -167,12 +167,48 @@ GitHub Actions 也是 non-interactive，会被 TTY 检查挡住。需要在 work
 ### 设计依据
 
 1. `clawhub skill publish` 子命令**没有原生 `--dry-run`**（只有 `clawhub sync` 有）
-2. `clawhub` CLI 用 commander.js，对 multiline `-` 开头的 changelog 行有解析陷阱
-3. 历史上发生过两次"AI 在调试 / 验证命令格式时不小心真发布"事件——两次都是
+2. 历史上发生过两次"AI 在调试 / 验证命令格式时不小心真发布"事件——两次都是
    AI 在工具调用里追加 `--no-dry-run` 就触发，纯 flag 拦不住
 
 `--no-dry-run` + TTY 这套组合是"红按钮"——**禁止任何 AI / 自动化脚本绕过**。
 合法触发者只有两类：当面操作的发版人（满足 TTY），或带审计 env var 的 CI 任务。
+
+---
+
+## 三-3、调试纪律：先复现，再归因
+
+当任何外部 CLI（`clawhub`、`rawtherapee-cli`、`openclaw` 等）报错时，
+**禁止**仅凭报错文本 + 直觉就推断"它内部有 X bug"然后改我们的代码去绕。
+流程必须是：
+
+1. **本地最小复现**：把那条命令脱离我们的脚本环境，手工跑一遍，确认能稳定重现。
+2. **读源 / 读文档**：clawhub 等 npm 工具的源码就在
+   `~/.local/share/fnm/node-versions/*/installation/lib/node_modules/clawhub/dist/`，
+   可直接读。RawTherapee、ffmpeg 都有详尽的 `--help` / man page。
+3. **做对照实验**：构造一个能区分"是它的 bug"和"是我们用错了"的最小实验。
+   例如：怀疑 `commander.js` 解析以 `-` 开头的多行字符串有问题？写 6 行 JS
+   直接用 `commander` v12 跑一遍同样的 argv，看到底有没有问题。
+4. **再写 fix + commit message**，commit message 里必须包含验证步骤和参考依据
+   （源码行号、最小复现命令等）。
+
+### 反面教训
+
+本项目早期发生过一次具体的误诊：撞到 `clawhub skill publish` 报
+`Error: Path must be a folder`，没做 root-cause 分析，凭直觉断定
+"`clawhub` 用 `commander.js`，应该是 multiline 含 `-` 开头列表的 changelog
+被误解析为新 flag"，于是把 CHANGELOG 里的列表前缀 `-` 全替换成 `*`，
+还把这条未经验证的"经验"写进了 `scripts/publish.py` docstring 和这份
+RELEASING.md。dry-run 看起来"通过了"——但 dry-run 根本不调真 clawhub，
+所以这个伪修复无法被证伪。
+
+后来通过读 `clawhub` 源码 + `commander` v12 本地对照实验，发现根本没有什么
+"`-` 解析陷阱"，真 root cause 是 `clawhub` 的 `resolveWorkdir()` 在装了
+OpenClaw 的机器上 fallback 到 OpenClaw default workspace，跟 changelog 内容
+毫无关系。真修复就是 `scripts/publish.py` 里现在的 `--workdir <repo-abs>` +
+绝对 path —— 跟 changelog 完全无关。
+
+这套流程跟前面"红按钮"是一脉相承的：**对不可逆 / 难以纠错的操作，多一道纪律**。
+误诊不止浪费时间，还会在仓库里留下假"经验"污染未来所有读者。
 
 ---
 
@@ -286,7 +322,6 @@ done
 >   每 skill 独立的 release notes 用不上。
 > - **跳过一致性校验**。`scripts/sync_versions.sh --check`（含 changelog 段校验）和 publish.py 的
 >   ClawHub 查重都不会跑。
-> - **multiline `-` 开头 bug 同样存在**。sync 内部还是用 commander.js 解析 `--changelog`。
 > - **批量误推风险**。仓库里临时多出来的 WIP skill 目录可能被一起扫上去。
 >
 > 等 ClawHub CLI 把 publish 的 dry-run、`--changelog-file` 之类补齐，或者我们的 4 个 skill 多到

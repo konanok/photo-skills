@@ -18,9 +18,7 @@ publish.py — 一键发布单个 skill 到 ClawHub
 
   这套设计是因为：
     1. clawhub CLI 没有原生 --dry-run（只有 clawhub sync 有）
-    2. multiline changelog 在 commander.js 下会被误解析（`-` 开头行被当作
-       新 flag），bash 和 Python subprocess 都中招
-    3. 历史上有过两次"调试时误发布"事件——两次都是 AI 在工具调用里
+    2. 历史上有过两次"调试时误发布"事件——两次都是 AI 在工具调用里
        追加 --no-dry-run 触发。TTY 校验把这个攻击面物理关死。
 
 流程：
@@ -41,8 +39,11 @@ publish.py — 一键发布单个 skill 到 ClawHub
 <skill-name> 必须是 4 个之一：
   photo-toolkit / photo-screener / photo-grader / openclaw-photo-agents-creator
 
-注意：subprocess 用 argv list 形式调用 clawhub，绕过 shell quoting，但 commander.js
-仍可能在收到 multiline 字符串时把 `-` 开头的行当成新 flag。修复方案待定。
+实现注意：
+  - subprocess 用 argv list 形式调用 clawhub（不经过 shell）
+  - 显式传 --workdir <repo-root> + 绝对 path，避免 clawhub 的 workdir 解析
+    在装了 OpenClaw 的机器上 fallback 到 OpenClaw default workspace
+    （会让 ./photo-toolkit 解析到错误目录，报 "Path must be a folder"）
 
 退出码：
   0  发布成功（或 dry-run 通过）
@@ -334,14 +335,26 @@ def main() -> int:
         err("clawhub CLI not found")
         return 2
 
-    # 关键：用 list 形式构造 argv，整段 changelog 作为单个 argv 元素，
-    # 避开 shell quoting。注意：commander.js 在收到 multiline 字符串时仍可能
-    # 把 `-` 开头的行当作新 flag（已知 bug，修复方案待定）。
+    # 关键：把 path 和 workdir 都用绝对路径，不依赖 cwd 和环境状态。
+    #
+    # 历史背景：clawhub 的 `resolveWorkdir()` 优先级是
+    #   --workdir > $CLAWHUB_WORKDIR > cwd 含 .clawhub/ marker > OpenClaw 默认 workspace > cwd
+    # 当机器上装了 OpenClaw 且配置了默认 workspace（比如 photo-agents 用户）时，
+    # 第 4 条会让 workdir 解析到 OpenClaw workspace 而不是仓库根，于是
+    # `./photo-toolkit` 被解析到错误目录，clawhub 报 "Path must be a folder"。
+    # 显式传 --workdir 和绝对 path 把这个不确定性彻底消除。
+    #
+    # 对没装 OpenClaw 的开发者：原来的 `./photo-toolkit` 形式靠 rule 5（fallback
+    # 到 cwd）也能 work，本改动对他们等价 —— 只是把"靠 cwd"的隐式依赖换成
+    # 显式传参，行为不变只会更确定。无回归风险。
+    skill_abs = str(skill_dir.resolve())
     publish_argv: list[str] = [
         "clawhub",
+        "--workdir",
+        str(REPO_ROOT.resolve()),
         "skill",
         "publish",
-        f"./{skill}",
+        skill_abs,
         "--slug",
         skill,
         "--version",
