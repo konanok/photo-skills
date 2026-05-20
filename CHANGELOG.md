@@ -34,8 +34,41 @@ gets rejected at publish time:
 > namespace. Choose a slug that does not start with "openclaw-" or end
 > with "-openclaw".
 
-To unblock release we'll need to rename the skill — the leading candidate is
-`photo-agents-creator`, which also lines up nicely with the other three
-`photo-*` skills. That rename touches the directory name, `SKILL.md` `name`,
-several scripts, and inter-skill references in changelogs / READMEs, so it's
-deferred until we're ready to do it cleanly.
+### TODO: rename + republish
+
+This is deferred — pending decision on the new slug. Notes for whoever
+picks this up next (you, future-me, or an AI):
+
+**Slug candidates (all namespace-compliant)**:
+
+- `photo-agents-creator` — short, lines up with the other three `photo-*`
+  skills. Loses the "OpenClaw-only" hint in the slug, but `SKILL.md`
+  description and `metadata.openclaw.requires.bins: [openclaw]` already
+  carry that information very clearly.
+- `oc-photo-agents-creator` — keeps an "OpenClaw" hint via the `oc-`
+  abbreviation, but `oc-` is ambiguous (Open Compute? Open Container?).
+- `claw-photo-agents` / `photo-agents-claw` — uses `claw-`/`-claw`
+  (allowed since `openclaw` is reserved but not `claw`); risks confusion
+  with ClawHub-the-platform itself.
+
+The leading candidate is **`photo-agents-creator`**, but the final call
+is intentionally left open.
+
+**Estimated change size (rename to any new slug)**:
+
+- ~57 lines across ~12 files (~33 of which are mechanical
+  `sed -i '' 's/old/new/g'` substitutions in README / INSTALL / RELEASING
+  / CODEBUDDY etc.)
+- 1 `git mv` for the directory
+- ~10 lines of "real" thinking-required edits: `KNOWN_SKILLS` /
+  `DEFAULT_SKILLS` / workflow path filter / `SKILL.md name:` field /
+  this very CHANGELOG status section.
+
+**Validation strategy (zero irreversible operations)**:
+
+After renaming, run `bash scripts/publish.sh <new-slug>` (default
+dry-run). Step `[4/6] checking ClawHub for existing version` calls
+`clawhub inspect <slug> --json`, which is read-only — if the new slug
+is also rejected by the namespace check, this step will surface it
+without any publish happening. Only flip to `--no-dry-run` once the
+inspect step returns "first publish".
