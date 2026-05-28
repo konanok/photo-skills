@@ -40,7 +40,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
 
-# 默认扫描的 4 个 skill 目录
+# 默认扫描的 4 个 skill 目录（仅包含会发布到 ClawHub 的 skill）。
+# photo-previewer 故意不在此列表内——它是仓库内部使用的本地工具，
+# 不发布到 ClawHub，因此也不需要 SKILL.md ↔ VERSION 一致性校验。
 DEFAULT_SKILLS=(
     "photo-toolkit"
     "photo-screener"

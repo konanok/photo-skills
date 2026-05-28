@@ -1,0 +1,6 @@
+# photo-previewer uses Python stdlib only — no runtime dependencies required.
+#
+# `tomllib` is built into Python 3.11+. On Python 3.8-3.10, future versions of
+# this skill that read `config.toml` will fall back to the optional `tomli`
+# package — install it only when needed; the placeholder script in this scaffold
+# does not read TOML yet.

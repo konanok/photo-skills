@@ -4,6 +4,11 @@
 >
 > 用户安装文档见 [INSTALL.md](./INSTALL.md)。
 
+> **关于 photo-previewer**：仓库内还有第 5 个 skill 目录 `photo-previewer/`，
+> 但它**不发布到 ClawHub**——是仓库内部使用的本地工具。本文档全部 4 个
+> 发版场景、版本一致性校验（`scripts/sync_versions.sh`）、`scripts/publish.sh`
+> 都**不**涉及 photo-previewer，请不要把它纳入任何发布流程。
+
 ---
 
 ## 一、ClawHub 发布形态（必读约束）

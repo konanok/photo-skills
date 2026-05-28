@@ -1,0 +1,29 @@
+# photo-previewer 配置
+#
+# Copy this file to `config.toml` (gitignored) and fill in for your deployment.
+# All fields are optional — empty / 0 means "use built-in default".
+#
+# Field naming follows the flat-key convention used by other skills in this
+# repo (photo-toolkit / photo-grader / photo-screener config.toml). Don't
+# wrap settings in a [previewer] section.
+
+# HTTP server bind port. 0 = let the OS pick a free port (recommended on
+# servers behind a reverse proxy that routes /preview/<port>/* to it).
+# Set a fixed port if you want a stable port for nginx upstream.
+# CLI flag --port overrides this value.
+port = 0
+
+# The user-facing URL printed at startup and shared with end users.
+# photo-previewer itself binds 127.0.0.1 — exposing it to the internet is
+# the deployment's job (typically nginx / OpenClaw gateway / k8s ingress
+# rewriting /preview/* to http://127.0.0.1:<port>/). Set this to whatever
+# URL the reverse proxy maps to this server.
+#
+# Examples:
+#   external_url = "https://your-domain.com/preview/"
+#   external_url = "https://openclaw.example.com/agents/<id>/preview/"
+#
+# Leave empty (default) to fall back to printing the internal
+# `http://127.0.0.1:<port>/` URL — useful for local dev / smoke tests.
+# CLI flag --external-url overrides this value.
+external_url = ""
