@@ -16,6 +16,29 @@ Versioning rules and release flow live in [RELEASING.md](./RELEASING.md) (strate
 
 ## Cross-skill milestones
 
+### 2026-06-02 — 1.0.1 patch round
+
+Coordinated patch across three skills. Triggered by a user report of
+"all 9 graded photos came out near-black" on real-server deployment.
+Root-caused to **two independent latent bugs that masked each other**:
+
+| Layer | Bug | Fix in skill |
+|---|---|---|
+| Engine (`grade.py`) | `--auto-match` wrote wrong PP3 field (DCP toggle instead of `[Exposure] HistogramMatching`); `raw.auto_bright` silently dropped; bad-schema JSON silently dropped fields | photo-grader 1.0.1 |
+| Architecture (`create_agents.py`) | Hard constraints lived only in `BOOTSTRAP.md`, which OpenClaw silently filters and deletes once `setupCompletedAt` is set — leaving agents without "must spawn curator" rule, who then wrote broken JSON schema that hit the engine bugs above | openclaw-photo-agents-creator 1.0.1 |
+| Toolkit (`find_by_date.py`) | EXIF read failures returned empty list silently on fuse/COS mounts, leading agents to abandon the script | photo-toolkit 1.0.1 |
+
+End-to-end verification: same NEF + same params, mean luma 32.65 → 82.68
+(2.5× brighter, matches in-camera JPG contrast). See each skill's CHANGELOG
+for technical details.
+
+| Skill                         | Version    | Published to ClawHub                  |
+| ----------------------------- | ---------- | ------------------------------------- |
+| photo-toolkit                 | 1.0.0 → 1.0.1 | not yet                             |
+| photo-screener                | 1.0.0 (unchanged) | —                                |
+| photo-grader                  | 1.0.0 → 1.0.1 | not yet                             |
+| openclaw-photo-agents-creator | 1.0.0 → 1.0.1 | still blocked by slug namespace (see below) |
+
 ### 2026-05-20 — Initial public release on [ClawHub](https://clawhub.ai)
 
 | Skill                         | ClawHub                                                                   | Status                        |

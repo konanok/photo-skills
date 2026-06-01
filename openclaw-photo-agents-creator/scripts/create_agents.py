@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 """
 OpenClaw Photo Agents Creator
-自动创建双 Agent 摄影工作流系统
+自动创建/升级双 Agent 摄影工作流系统
 
-使用 openclaw agents add CLI 注册 Agent，
-然后写入 BOOTSTRAP.md 种子文件（合并了所有关键约束）。
+执行步骤：
+  1. `openclaw agents add` 注册 Agent（升级模式跳过）
+  2. **AGENTS.md upsert**（主路径）：把业务硬约束块插入到 workspace 的
+     AGENTS.md 里一个带 marker 的 section（OpenClaw 始终注入 AGENTS.md，
+     是真理之源）。保留 OpenClaw 默认 seed 的通用工作区行为 + 用户自定义内容
+  3. **BOOTSTRAP.md**（仅首次创建）：写一次性 first-run 引导文档。升级模式
+     跳过——OpenClaw 会在 setup 完成后主动 fs.rm 删除它（见
+     reconcileWorkspaceBootstrapCompletionState），反复写没有意义
 
 架构：
   🎬 PhotoArtist  — 艺术总监（编排执行、与用户对话）
@@ -281,18 +287,94 @@ def write_file(path: Path, content: str):
     print(f"  📝 {path.name}")
 
 
+# ── AGENTS.md marker-based upsert ───────────────────────────────
+#
+# Why marker-based:
+#   OpenClaw `ensureAgentWorkspace` (workspace-DNgRLjQy.js:381) seeds a default
+#   `AGENTS.md` via `writeFileIfMissing` when an agent first starts a session
+#   (First Run / Session Startup / Memory / Red Lines, ~7-8KB of general
+#   workspace behavior). Users may also hand-edit AGENTS.md with personal notes.
+#
+#   We need to inject photo-skills business hard-constraints (must spawn curator,
+#   schema requirements, session layout) WITHOUT clobbering either.
+#
+# Protocol:
+#   - Our block is delimited by sentinel comments:
+#       <!-- BEGIN: photo-skills-{role}-rules:v1 -->
+#       ... our rendered template ...
+#       <!-- END: photo-skills-{role}-rules:v1 -->
+#   - On upsert:
+#       * If file doesn't exist → write the full template (already starts and
+#         ends with our markers from the template itself)
+#       * If file exists AND contains our markers → replace the block in place
+#       * If file exists but no markers → append a blank line + our block to EOF
+#   - Version `v1` lets us deprecate cleanly later (a `v2` template can
+#     leave old `v1` blocks for users to compare or delete manually).
+
+_AGENTS_MARKER_BEGIN_FMT = "<!-- BEGIN: photo-skills-{role}-rules:v1 -->"
+_AGENTS_MARKER_END_FMT = "<!-- END: photo-skills-{role}-rules:v1 -->"
+
+
+def upsert_agents_md_block(path: Path, role: str, rendered_block: str) -> str:
+    """Insert/replace the photo-skills hard-constraints block in workspace/AGENTS.md.
+
+    `rendered_block` is the content rendered from agents-{role}.md template
+    AND already wrapped in BEGIN/END markers (the template itself contains
+    them, see templates/agents-artist.md). This function passes the rendered
+    string through directly when inserting or replacing.
+
+    Returns a one-word action label for logging: "created" / "replaced" / "appended".
+    """
+    begin = _AGENTS_MARKER_BEGIN_FMT.format(role=role)
+    end = _AGENTS_MARKER_END_FMT.format(role=role)
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    if not path.exists():
+        path.write_text(rendered_block + "\n", encoding="utf-8")
+        return "created"
+
+    existing = path.read_text(encoding="utf-8")
+    begin_idx = existing.find(begin)
+    end_idx = existing.find(end)
+
+    if begin_idx != -1 and end_idx != -1 and end_idx > begin_idx:
+        # Replace in-place: keep everything before BEGIN and after END.
+        before = existing[:begin_idx]
+        after = existing[end_idx + len(end):]
+        merged = before + rendered_block + after
+        path.write_text(merged, encoding="utf-8")
+        return "replaced"
+
+    # Markers absent → append at EOF, separated by a blank line.
+    separator = "\n\n" if not existing.endswith("\n\n") else ""
+    if existing and not existing.endswith("\n"):
+        separator = "\n" + separator
+    path.write_text(existing + separator + rendered_block + "\n", encoding="utf-8")
+    return "appended"
+
+
 def create_agent_via_cli(
     agent_id: str, workspace_dir: Path, agent_type: str, vars_dict: dict, agent_exists: bool = False
 ) -> bool:
-    """通过 openclaw CLI 创建 Agent，然后写入 BOOTSTRAP.md
+    """通过 openclaw CLI 创建 Agent，然后写入 workspace 文件。
 
-    折中方案：不再写 IDENTITY/SOUL/AGENTS/TOOLS 等分散文件，
-    而是把关键约束合并到一个 BOOTSTRAP.md 种子文件中。
-    Agent 首次启动时从 BOOTSTRAP.md 读取种子知识。
+    文件写入策略（按重要性排序）：
+      1. **AGENTS.md upsert**（始终执行）— OpenClaw 永久注入该文件到 system
+         prompt，是业务硬约束的真理之源。marker-based upsert 保留 OpenClaw
+         默认 seed 的通用工作区行为（First Run / Session Startup / Memory /
+         Red Lines）和用户自定义内容。
+      2. **BOOTSTRAP.md**（仅首次创建）— 一次性 first-run 引导。setupCompletedAt
+         设置后 OpenClaw 会过滤并主动 fs.rm 删除它，所以升级模式跳过。
+      3. **prompts/**（仅 curator）— 写 user_prompt_selection / grading 模板，
+         调色 prompt 自动注入 LR→RT 映射参考。
 
-    升级语义：当 agent_exists=True 时跳过 `openclaw agents add`，仅刷新
-    workspace 内的 BOOTSTRAP.md / prompts / skills 文件。这让"重跑 creator"
-    成为合法的更新通道。
+    早期版本只写 BOOTSTRAP.md，导致 setup 完成后所有业务约束失效——见
+    CHANGELOG 1.0.1 "AGENTS.md marker-based upsert" 一条。
+
+    升级语义：当 agent_exists=True 时跳过 `openclaw agents add` 和 BOOTSTRAP.md
+    写入，仅刷新 AGENTS.md（marker block 内容）/ prompts / skills 文件。
+    这让"重跑 creator"成为合法的更新通道。
 
     Args:
         agent_id: Agent ID（如 photoartist）
@@ -335,9 +417,55 @@ def create_agent_via_cli(
         }
     )
 
-    # Step 3: 写入 BOOTSTRAP.md（种子文件，合并了所有关键约束）
-    bootstrap = render_template(load_template(f"bootstrap-{agent_type}.md"), agent_vars)
-    write_file(workspace_dir / "BOOTSTRAP.md", bootstrap)
+    # Step 3a: AGENTS.md — marker-based upsert (always run)
+    #
+    # 关键背景：OpenClaw v2026.5.18 的 system prompt 注入逻辑（来自 dist 源码
+    # workspace-DNgRLjQy.js 的 loadWorkspaceBootstrapFiles + filterBootstrapFilesForSession）：
+    #   - AGENTS.md / TOOLS.md 对 main session / subagent / cron 都注入，无过滤
+    #   - BOOTSTRAP.md 在 .openclaw/workspace-state.json 的 setupCompletedAt 已设置时
+    #     被 filterCompletedWorkspaceBootstrapFile 丢弃；subagent/cron 永远不注入；
+    #     更糟：reconcileWorkspaceBootstrapCompletionState 在 setup 完成时还会
+    #     主动 `fs.rm` 掉 BOOTSTRAP.md。所以 BOOTSTRAP 是"一次性礼炮"，不是
+    #     持久 SOP。
+    #
+    # 历史 bug：早期版本只写 BOOTSTRAP.md，假设它一直被注入。结果用户的
+    # photoartist 在 setup completed 后丢失了所有业务约束（"必须 spawn curator"
+    # 等），自己脑补 grading_params.json schema，触发 grade.py 一连串静默失败，
+    # 最终用户拿到"画面死黑"的产物。
+    #
+    # 修复：把硬约束写到 AGENTS.md 里一个带 marker 的 block，用 upsert 协议
+    # 保留 OpenClaw 默认 seed 的通用工作区行为（First Run/Session Startup/
+    # Memory/Red Lines）以及用户手动加的自定义内容。
+    agents_template = load_template(f"agents-{agent_type}.md")
+    if agents_template is not None:
+        agents_block = render_template(agents_template, agent_vars)
+        action = upsert_agents_md_block(workspace_dir / "AGENTS.md", agent_type, agents_block)
+        print(f"  📝 AGENTS.md (photo-skills-{agent_type}-rules:v1 block {action})")
+    else:
+        # Defensive: 模板缺失时不静默继续，因为缺 AGENTS.md = agent 失去硬约束
+        print(
+            f"  ⚠️  WARN: templates/agents-{agent_type}.md 未找到，AGENTS.md 未更新。"
+            f"\n     这会导致 {agent_type} 在 setupCompletedAt 已设置后失去业务硬约束。"
+            f"\n     请检查 openclaw-photo-agents-creator 安装是否完整。",
+        )
+
+    # Step 3b: BOOTSTRAP.md — first-run only（升级模式下跳过）
+    #
+    # 为什么升级模式跳过：OpenClaw 在 setupCompletedAt 已设置的 workspace 上
+    # 每次 session 启动都会触发 reconcileWorkspaceBootstrapCompletionState
+    # 主动 `fs.rm` 掉 BOOTSTRAP.md（workspace-DNgRLjQy.js:197-241 分支 3）。
+    # 我们这里写进去会立刻在下次 agent session 启动时被删，等于无效的写-删
+    # 循环。所以升级模式下完全跳过。
+    #
+    # 首次创建（agent_exists=False）时仍写：那种情况 workspace 还没经历过
+    # session 启动，setupCompletedAt 也还没设置，BOOTSTRAP.md 能在 first-run
+    # 时被注入一次（承担它"一次性礼炮"的设计本意）。
+    if agent_exists:
+        print(f"  ⏭  BOOTSTRAP.md 升级模式跳过（OpenClaw 已设置 setupCompletedAt，"
+              f"任何新版 BOOTSTRAP.md 都会在下次 session 启动时被 reconcile 删除）")
+    else:
+        bootstrap = render_template(load_template(f"bootstrap-{agent_type}.md"), agent_vars)
+        write_file(workspace_dir / "BOOTSTRAP.md", bootstrap)
 
     # Curator 额外写入 user-prompt 模板（结构化格式约束，不适合省略）
     if not is_artist:

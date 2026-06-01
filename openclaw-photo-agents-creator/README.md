@@ -74,9 +74,14 @@ python3 openclaw-photo-agents-creator/scripts/create_agents.py --yes
 
 ### 配置文件
 
-每个 Agent 包含：
+每个 Agent 包含两类系统文档（语义截然不同，互补不重叠）：
 
-- `BOOTSTRAP.md` — 种子文件，合并了角色定义、行为准则、工具说明等关键约束
+- **`AGENTS.md`** — 持久业务硬约束。OpenClaw 始终把它注入 system prompt（main session 与 subagent / cron 都注入，不被 `setupCompletedAt` 过滤）——这是**真理之源**。`create_agents.py` 用 marker-based upsert 把业务规则块插入到现有 AGENTS.md，**保留** OpenClaw 默认 seed 的通用工作区行为（First Run / Session Startup / Memory / Red Lines 等约 7-8KB 内容）以及用户手动添加的笔记。
+- **`BOOTSTRAP.md`** — **一次性引导文档**（first-run only）。仅在 workspace 首次创建（`.openclaw/workspace-state.json` 的 `setupCompletedAt` 未设置）时被 OpenClaw 注入一次。**Setup 完成后 OpenClaw 会主动 `fs.rm` 删除它**（见 `workspace-DNgRLjQy.js:197-241` 的 `reconcileWorkspaceBootstrapCompletionState`），所以它**不是**持久 reference 文档。
+
+> ⚠️ 历史教训：早期版本只写 BOOTSTRAP.md 并假设它一直被注入。一旦 OpenClaw 把 workspace 标记为 setup 完成，BOOTSTRAP 被过滤并删除，agent 就丢失所有业务约束（"必须 spawn curator" 等），自己脑补 grading_params.json schema，最终造成用户拿到"画面死黑"的产物。AGENTS.md marker-based upsert 是这件事的修复——硬约束随 OpenClaw 注入路径长期生效，**且不会破坏用户在 AGENTS.md 内的其他内容**。
+>
+> 升级模式（重跑 `create_agents.py`）下 BOOTSTRAP.md 跳过写入，避免反复"写-删"循环。
 
 Curator 额外包含：
 

@@ -29,5 +29,5 @@ output_bpp = 8
 # 是否启用镜头校正 (lensfun)
 lens_correction = true
 
-# 是否使用 Auto-Matched Camera Profile (匹配机内 JPEG 风格)
+# 是否使用 Auto-Matched Tone Curve (RT `[Exposure] HistogramMatching`，匹配机内 JPEG 风格)
 auto_matched_curve = true

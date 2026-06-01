@@ -1,13 +1,14 @@
 ---
 name: openclaw-photo-agents-creator
-version: 1.0.0
+version: 1.0.1
 description: |
   创建或更新 OpenClaw 双 Agent 摄影工作流系统（重跑即升级）。
 
   一键部署 PhotoArtist Agent（艺术总监 — 编排执行）和 PhotoCurator Agent（策展师 — 选片/排版/调色），
   包含完整的 Skill 配置、Agent 灵魂定义、工作流编排和协作协议。同一脚本同时承担"首次创建"
   和"既有 agent 升级"两条路径——重跑会自动识别既有 agent，从 .creator-state.json 恢复参数，
-  并刷新 BOOTSTRAP.md / prompts / skills/ 到仓库最新版本。
+  并刷新 AGENTS.md 业务规则块（marker-based upsert）/ prompts / skills/ 到仓库最新版本。
+  BOOTSTRAP.md 仅首次创建时写入（OpenClaw 在 setup 完成后会主动删除，升级模式跳过避免反复写-删）。
 
   Use when the user wants to:
   - 快速搭建 OpenClaw 摄影后期工作流
@@ -19,9 +20,11 @@ description: |
 
   Triggers: User mentions creating OpenClaw agents, setting up photo workflow,
   deploying photographer agent, auto photo grading system, **updating photo agents,
-  upgrading photo-skills, refreshing agent workspace, applying new BOOTSTRAP/prompts
+  upgrading photo-skills, refreshing agent workspace, applying new BOOTSTRAP/AGENTS/prompts
   to running agent, syncing local skill changes to OpenClaw runtime,
-  升级 / 更新 photo agent，刷新 agent 工作区，把新代码部署到 agent**.
+  fixing photo dark/black output, restoring spawn-curator behavior,
+  升级 / 更新 photo agent，刷新 agent 工作区，把新代码部署到 agent，
+  修复照片输出死黑 / 偏暗问题，恢复 artist 委派 curator 行为**.
 metadata:
   openclaw:
     homepage: https://github.com/konanok/photo-skills
@@ -45,7 +48,10 @@ metadata:
 | **PhotoArtist**  | `photoartist`  | 艺术总监 — 编排执行、用户对话 | `workspace-photoartist/`  |
 | **PhotoCurator** | `photocurator` | 策展师 — 选片、排版、调色方案 | `workspace-photocurator/` |
 
-每个 Agent 包含 BOOTSTRAP.md（种子文件，包含所有关键约束）。
+每个 Agent 包含两类文档（语义截然不同）：
+
+- **`AGENTS.md`** — 持久业务硬约束。OpenClaw 始终把 AGENTS.md 注入到 system prompt（main session 与 subagent/cron 都注入），无任何过滤。`create_agents.py` 用 marker-based upsert（`<!-- BEGIN/END: photo-skills-{role}-rules:v1 -->`）把业务规则块插入 AGENTS.md，**保留** OpenClaw 默认 seed 的通用工作区行为（First Run / Session Startup / Memory / Red Lines 等）以及用户手动加的内容。**这是真理之源**。
+- **`BOOTSTRAP.md`** — **一次性**引导文档（first-run only）。仅在 workspace 首次创建（`.openclaw/workspace-state.json` 的 `setupCompletedAt` 未设置）时被 OpenClaw 注入到 system prompt 一次。**Setup 完成后 OpenClaw 会主动 `fs.rm` 删除它**（见 `workspace-DNgRLjQy.js` 的 `reconcileWorkspaceBootstrapCompletionState`），所以它不是持久文档。`create_agents.py` 在升级模式（agent 已存在）下**跳过写入**，避免反复"写-删"循环。
 
 Artist 额外包含 skills/（三个 photo skill）。Curator 额外包含 prompts/（选片/调色 User Prompt，调色 prompt 自动注入 LR→RT 映射参考）。
 
@@ -115,7 +121,9 @@ python3 openclaw-photo-agents-creator/scripts/create_agents.py --yes
 - ✅ **自动发现** — 扫描所有 workspace 找到上次创建的 agent，无需重新指定 `--artist-id` 等参数
 - ✅ **保留参数** — 上次的昵称 / Emoji / 用户称呼自动从 `.creator-state.json` 恢复
 - ✅ **跳过注册** — 已注册的 agent 不会再过 `openclaw agents add`
-- 🔄 **覆盖刷新** — `BOOTSTRAP.md` / `prompts/` / `skills/<photo-*>/` 全部重写为最新模板/代码
+- 🔄 **AGENTS.md 业务规则块更新**（marker-based upsert）— 只替换 `<!-- BEGIN/END: photo-skills-{role}-rules:v1 -->` 之间的内容，保留 OpenClaw 默认 seed 与用户在 marker 外的自定义内容
+- 🔄 **覆盖刷新** — `prompts/` / `skills/<photo-*>/` 全部重写为最新模板/代码
+- ⏭ **跳过 BOOTSTRAP.md** — 升级模式下不写（OpenClaw 在 setup 完成后会主动 fs.rm 删除它，反复写无意义）
 - 🛡️ **保护用户配置** — `skills/config.toml`（照片输入/输出目录）**永不覆盖**；如新版 schema 有变更脚本会提示手动 diff
 
 **显式覆盖参数**：如想顺带改昵称/Emoji，仍可通过 CLI 传入：
@@ -161,11 +169,12 @@ CLI 参数 > `.creator-state.json` 中的旧值 > `DEFAULTS`，逐项覆盖。
 脚本会自动完成以下操作：
 
 1. **注册 Agent**：通过 `openclaw agents add` 注册两个 Agent 到 OpenClaw
-2. **写入 BOOTSTRAP.md**：渲染模板并写入种子文件（Artist 的含完整工作流约束，Curator 的含输出规范）
-3. **复制 Skills**：将三个 photo skill 复制到 Artist 工作区的 `skills/` 目录
-4. **安装依赖**：自动运行各 skill 的 `setup_deps.sh` 检查依赖；失败时必须提示用户先修复，不可静默继续
-5. **创建合并配置**：在 `skills/config.toml` 生成合并配置，统一所有 skill 的输入输出路径
-6. **注入 LR→RT 映射**：Curator 的调色 prompt 自动注入 `rt-mapping-reference.md` 内容
+2. **upsert AGENTS.md**：渲染 `templates/agents-{artist,curator}.md`，用 marker-based upsert 写到 workspace 根目录的 AGENTS.md（OpenClaw 始终注入；保留默认 seed 与用户自定义内容）
+3. **写 BOOTSTRAP.md**：仅首次创建时写入（first-run 由 OpenClaw 注入一次后自动删除）。升级模式跳过避免反复写-删
+4. **复制 Skills**：将三个 photo skill 复制到 Artist 工作区的 `skills/` 目录
+5. **安装依赖**：自动运行各 skill 的 `setup_deps.sh` 检查依赖；失败时必须提示用户先修复，不可静默继续
+6. **创建合并配置**：在 `skills/config.toml` 生成合并配置，统一所有 skill 的输入输出路径
+7. **注入 LR→RT 映射**：Curator 的调色 prompt 自动注入 `rt-mapping-reference.md` 内容
 
 ---
 
@@ -176,7 +185,8 @@ CLI 参数 > `.creator-state.json` 中的旧值 > `DEFAULTS`，逐项覆盖。
 > 脚本已自动完成：
 >
 > - 注册 Agent（`openclaw agents add`）
-> - 写入 BOOTSTRAP.md 种子文件
+> - **AGENTS.md upsert**：把业务硬约束块插入到 workspace 的 AGENTS.md 里一个带 marker 的 section（OpenClaw 始终注入，是真理之源），保留 OpenClaw 默认 seed 的通用工作区行为与用户自定义内容
+> - 写入 BOOTSTRAP.md 种子文件（仅首次创建；升级模式跳过）
 > - 复制 Skills 到 Artist 工作区
 > - 生成合并 config.toml
 > - 注入 LR→RT 映射到 Curator prompt
@@ -313,14 +323,16 @@ openclaw agent --agent photoartist --message "帮我处理照片"
 ```
 ~/.openclaw/
 ├── workspace-<artist-id>/            # PhotoArtist（默认 workspace-photoartist）
-│   ├── BOOTSTRAP.md                  # 种子文件（含工作流、约束、进度追踪）
+│   ├── AGENTS.md                     # ★ 持久硬约束（始终注入；marker block + OpenClaw seed + 用户自定义）
+│   ├── BOOTSTRAP.md                  # 一次性引导（仅首次创建时写；first-run 后被 OpenClaw 自动删除）
 │   └── skills/                       # OpenClaw skills 目录
 │       ├── config.toml               # 合并配置（统一输入输出路径）
 │       ├── photo-toolkit/
 │       ├── photo-screener/
 │       └── photo-grader/
 └── workspace-<curator-id>/           # PhotoCurator（默认 workspace-photocurator）
-    ├── BOOTSTRAP.md                  # 种子文件（含输出规范、安全范围）
+    ├── AGENTS.md                     # ★ 持久硬约束（subagent 场景下唯一约束来源；BOOTSTRAP/HEARTBEAT/MEMORY 永远不注入到 subagent）
+    ├── BOOTSTRAP.md                  # 一次性引导（仅首次创建时写；first-run 后被 OpenClaw 自动删除）
     └── prompts/
         ├── user_prompt_selection.md  # 第一轮：选片+排版
         └── user_prompt_grading.md   # 第二轮：调色（含 LR→RT 映射注入）

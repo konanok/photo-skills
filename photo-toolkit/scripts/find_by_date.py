@@ -258,20 +258,74 @@ def find_raw_files(input_path, recursive=False):
     return results
 
 
-def get_file_dates(raw_files, workers=None):
-    """Read EXIF dates from multiple RAW files in parallel."""
+def get_file_dates(raw_files, workers=None, mtime_fallback=False, progress_interval=100, verbose=True):
+    """Read EXIF dates from multiple RAW files in parallel.
+
+    Args:
+        raw_files: list of file paths.
+        workers: thread pool size (default: min(cpu_count, 16)).
+        mtime_fallback: if True, files whose EXIF DateTimeOriginal cannot be
+            read fall back to filesystem mtime instead of returning None.
+            Useful on fuse/COS-mounted volumes where partial-read of large
+            RAW headers may be slow or fail intermittently.
+        progress_interval: print a progress line every N files (0 = silent).
+            Only emitted to stderr when verbose=True.
+        verbose: if False, suppress the per-N-files progress line AND the
+            "Skipped … files (EXIF unreadable)" summary. Stats are still
+            returned via the result tuple shape so callers can decide.
+
+    Returns:
+        list of (raw_path, datetime_or_None) tuples, sorted by filename.
+        The caller can compute failure count by counting None entries.
+    """
     max_workers = workers or min(os.cpu_count() or 4, 16)
+    total = len(raw_files)
     results = []
+    exif_failures = 0
+    mtime_recovered = 0
+
+    if verbose and total > 0:
+        print(f"Scanning EXIF from {total} file(s) using {max_workers} worker(s)...", file=sys.stderr)
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {executor.submit(read_exif_date, f): f for f in raw_files}
+        done = 0
         for future in as_completed(futures):
             raw_path = futures[future]
             try:
                 dt = future.result()
             except Exception:
                 dt = None
+
+            if dt is None:
+                exif_failures += 1
+                if mtime_fallback:
+                    try:
+                        mtime = os.path.getmtime(raw_path)
+                        dt = datetime.fromtimestamp(mtime)
+                        mtime_recovered += 1
+                    except OSError:
+                        dt = None
+
             results.append((raw_path, dt))
+            done += 1
+            if verbose and progress_interval > 0 and done % progress_interval == 0:
+                print(f"  ... {done}/{total} processed (EXIF failures so far: {exif_failures})", file=sys.stderr)
+
+    if verbose and exif_failures > 0:
+        if mtime_fallback:
+            print(
+                f"⚠ EXIF unreadable for {exif_failures}/{total} file(s); "
+                f"{mtime_recovered} recovered via mtime fallback, "
+                f"{exif_failures - mtime_recovered} still have no date.",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                f"⚠ Skipped {exif_failures}/{total} file(s) (EXIF unreadable). "
+                f"Add --mtime-fallback to use filesystem mtime instead.",
+                file=sys.stderr,
+            )
 
     results.sort(key=lambda x: x[0].name)
     return results
@@ -479,6 +533,17 @@ Examples:
 
     parser.add_argument("--recursive", "-r", action="store_true", help="递归搜索子目录")
     parser.add_argument("--workers", type=int, default=None, help="并行工作线程数")
+    parser.add_argument(
+        "--mtime-fallback",
+        action="store_true",
+        help="EXIF 读取失败时回退到文件 mtime；在 fuse/COS 等慢挂载下能避免空结果",
+    )
+    parser.add_argument(
+        "--progress-interval",
+        type=int,
+        default=100,
+        help="每处理 N 个文件打印一次进度（0 = 关闭，默认: 100）",
+    )
 
     args = parser.parse_args()
 
@@ -518,7 +583,12 @@ Examples:
     print(f"📷 扫描 {len(raw_files)} 个 RAW 文件的 EXIF 日期... ({ext_summary})", file=sys.stderr)
 
     start_time = time.monotonic()
-    file_dates = get_file_dates(raw_files, args.workers)
+    file_dates = get_file_dates(
+        raw_files,
+        workers=args.workers,
+        mtime_fallback=args.mtime_fallback,
+        progress_interval=args.progress_interval,
+    )
     scan_elapsed = time.monotonic() - start_time
 
     if args.list_dates:

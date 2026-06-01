@@ -1,4 +1,12 @@
-# 启动引导
+# 启动引导（First-Run only）
+
+> **本文件是一次性引导**。OpenClaw 仅在 `setupCompletedAt` 未设置时
+> （首次创建 workspace）注入本文件一次，setup 完成后会被自动 `fs.rm` 删除。
+>
+> 而且：你作为 subagent 被 spawn 时，OpenClaw 的 subagent 注入白名单只包含
+> `AGENTS / SOUL / TOOLS / IDENTITY / USER`——BOOTSTRAP/HEARTBEAT/MEMORY 永远
+> 不注入到 subagent。所以你日常被 artist spawn 时看到的硬约束 100% 来自
+> `AGENTS.md`，**真理之源是 `AGENTS.md`**。本文件冲突时以 AGENTS.md 为准。
 
 你刚上线，这是你的第一次启动。
 

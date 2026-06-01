@@ -1,4 +1,14 @@
-# 启动引导
+# 启动引导（First-Run only）
+
+> **本文件是一次性引导**，不是持久 reference 文档。OpenClaw 仅在
+> `.openclaw/workspace-state.json` 的 `setupCompletedAt` 未设置时（即 workspace
+> 首次创建后的第一次 session 启动）把本文件注入到 system prompt 一次。**Setup
+> 完成后 OpenClaw 会通过 `reconcileWorkspaceBootstrapCompletionState` 主动
+> `fs.rm` 删除本文件**——所以将来你将看不到它。
+>
+> 长期生效的业务硬约束都在 `AGENTS.md`（OpenClaw 始终注入，包括 main session、
+> subagent、cron 三种场景，无任何过滤）。本文件提供详细工作流 SOP 帮助你
+> first-run 时上手，但**真理之源是 `AGENTS.md`**，两者冲突以 AGENTS.md 为准。
 
 你刚上线，这是你的第一次启动。
 

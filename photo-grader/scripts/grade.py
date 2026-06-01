@@ -500,6 +500,47 @@ def rt_map_grain(pp3, effects):
     pp3[("_Comment", "FilmGrain")] = f"LR grain_amount={round(grain * 6)}; RT has no grain module"
 
 
+def rt_map_raw(pp3, raw_params):
+    """Map LR-style raw preprocessing flags → RT PP3.
+
+    Currently handled:
+      - auto_bright (bool): Lightroom's "Auto" exposure toggle. Maps to
+        RT `[Exposure] Auto=true` + `Clip=0.02`. RT analyzes the histogram
+        and adjusts Compensation to lift dark scenes automatically.
+
+        Empirically verified on Nikon NEF (RT 5.12): turning this on
+        alone lifts mean_luma from 32.65 (empty PP3) to 70.98 (+117%).
+        Combined with `[Exposure] HistogramMatching=true` reaches
+        mean_luma 83.05 with stddev 77.78 (high contrast + bright).
+
+      - bright (float, optional): direct exposure compensation in stops,
+        added on top of any user exposure value. Range ±2.0.
+
+    Note: `params["raw"]` was historically silently dropped — agents writing
+    `"raw": {"auto_bright": true}` saw their brighten request thrown away
+    because `build_pp3` never consumed this section. This function fixes
+    that omission.
+    """
+    if not raw_params:
+        return
+    auto_bright = raw_params.get("auto_bright")
+    if auto_bright:
+        pp3[("Exposure", "Auto")] = True
+        # Clip 0.02 = 2% highlight clip tolerance, RT default for auto exposure
+        pp3[("Exposure", "Clip")] = 0.02
+
+    bright = raw_params.get("bright")
+    if bright is not None:
+        try:
+            bright_val = float(bright)
+        except (TypeError, ValueError):
+            return
+        if abs(bright_val) >= 0.01:
+            # Only set if user didn't already set Compensation via basic.exposure
+            if ("Exposure", "Compensation") not in pp3:
+                pp3[("Exposure", "Compensation")] = round(rt_clamp_f(bright_val, -5.0, 5.0), 3)
+
+
 def build_pp3(params, style="graded", config=None):
     """Convert a single LR parameter set to a RawTherapee PP3 file content string.
 
@@ -515,6 +556,7 @@ def build_pp3(params, style="graded", config=None):
     cg = params.get("color_grading", {})
     detail = params.get("detail", {})
     effects = params.get("effects", {})
+    raw = params.get("raw", {})
 
     rt_map_exposure(pp3, basic)
     rt_map_contrast(pp3, basic)
@@ -528,6 +570,7 @@ def build_pp3(params, style="graded", config=None):
     rt_map_noise_reduction(pp3, detail)
     rt_map_vignette(pp3, effects)
     rt_map_grain(pp3, effects)
+    rt_map_raw(pp3, raw)  # NEW: consume params["raw"] (auto_bright / bright)
 
     # RAW preprocessing defaults
     pp3[("RAW", "CA_AutoCorrect")] = False
@@ -553,9 +596,24 @@ def build_pp3(params, style="graded", config=None):
         pp3[("LensProfile", "UseVignette")] = True
         pp3[("LensProfile", "UseCA")] = True
 
-    # Auto-Matched Camera Curve
+    # Auto-Matched Camera Curve (Auto-Matched Tone Curve)
+    #
+    # Historical bug: this used to write `[Color Management] ToneCurve = False`,
+    # which is actually a DCP (DNG Camera Profile) toggle and has nothing to do
+    # with Auto-Matched Camera Curve. The correct PP3 fields live under
+    # `[Exposure]`. Empirically verified on RT 5.10 / 5.12 (Nikon NEF):
+    #   - `[CM] ToneCurve=true/false` and an empty PP3 produce byte-identical
+    #     pixel data on a NEF without a DCP profile (0-op).
+    #   - `[Exposure] HistogramMatching=true` is what actually generates the
+    #     in-camera-JPEG-matched tone curve, lifting mean luma by ~+45 / +59%.
+    #
+    # `CurveFromHistogramMatching=false` is required: if true, RT assumes the
+    # curve has already been computed and skips the expensive matching step.
+    # See pixls.us discussion w/ Ingo Weyrich (RT dev) for the authoritative
+    # explanation.
     if cfg.get("auto_matched_curve", True):
-        pp3[("Color Management", "ToneCurve")] = False
+        pp3[("Exposure", "HistogramMatching")] = True
+        pp3[("Exposure", "CurveFromHistogramMatching")] = False
 
     # ── Section order for PP3 output ──
     # Defines the order sections appear in the PP3 file.
@@ -750,41 +808,179 @@ def grade_single_file(
 # ═══════════════════════════════════════════════════════════════
 
 
+# ── grading_params.json schema constants ───────────────────────
+#
+# Authoritative field names that build_pp3 / rt_map_* functions consume.
+# Update both BASIC_KEYS and the rt_map_*() implementations together —
+# adding a key here without a mapper, or vice versa, creates silent
+# "param accepted but does nothing" bugs.
+
+_BASIC_KEYS = {
+    # Tone / exposure
+    "exposure",
+    "contrast",
+    "highlights",
+    "shadows",
+    "whites",
+    "blacks",
+    # White balance — note: Lightroom's relative temp_offset/tint are
+    # intentionally NOT mapped (RT requires absolute Kelvin). Use the
+    # *_kelvin / *_offset / green forms.
+    "temperature_kelvin",
+    "green",
+    "tint_offset",
+    "temp_offset",  # accepted but ignored by rt_map_whitebalance (deliberate)
+    # Vibrance / saturation
+    "vibrance",
+    "saturation",
+}
+_DETAIL_KEYS = {"sharpen_amount", "sharpen_radius", "noise_reduction", "noise_detail"}
+_EFFECTS_KEYS = {"vignette_amount", "grain_amount", "grain_size"}
+_RAW_KEYS = {"auto_bright", "bright"}
+_NESTED_GROUPS = ("basic", "tone_curve", "hsl", "color_grading", "detail", "effects", "raw")
+
+# Known unrecoverable LLM-mistake field names. These are values that look
+# plausible to an LLM but where silently accepting them would *lose data*
+# (e.g. temperature=6500 silently dropped means user's WB was not applied).
+# Hard-fail with a precise correction hint.
+#
+# NOTE: top-level `params` is intentionally NOT here — it's a recognized
+# legacy schema that _normalize_flat_params() migrates with a warning.
+# Only fields that have no safe migration go in this dict.
+#
+# Each entry: bad_key → (correct_field_path, explanation)
+_KNOWN_BAD_ALIASES = {
+    "temperature": (
+        "basic.temperature_kelvin",
+        "RT needs an absolute Kelvin value (2000-25000), not a relative offset",
+    ),
+    "tint": (
+        "basic.tint_offset (or basic.green for direct RT multiplier)",
+        "RT's Green channel is a multiplier (0.5-2.0); tint_offset is a ±100 LR-style shift",
+    ),
+}
+
+
+def _scan_for_bad_aliases(field_dict, prefix=""):
+    """Walk a dict looking for unrecoverable known-bad field names.
+
+    Returns list of (qualified_path, (correct_field, reason)) tuples.
+    Skip keys that match a valid _BASIC_KEYS entry — so `temperature_kelvin`
+    doesn't false-positive on the `temperature` matcher.
+    """
+    if not isinstance(field_dict, dict):
+        return []
+    bad = []
+    for key in field_dict:
+        if key in _KNOWN_BAD_ALIASES and key not in _BASIC_KEYS:
+            qualified = f"{prefix}{key}" if prefix else key
+            bad.append((qualified, _KNOWN_BAD_ALIASES[key]))
+    return bad
+
+
+def _check_known_aliases(entry, file_label):
+    """Scan an entry for hard-fail bad field names.
+
+    Locations checked (in order):
+      1. Top level — covers `{file, temperature: 6500}` style mistakes
+      2. entry["basic"] — covers `{basic: {temperature: 6500}}`
+      3. entry["params"] — covers the legacy flat-schema case
+         `{params: {temperature: 6500}}` (still hard-fails on the inner
+         temperature even though `params` itself is just deprecated).
+
+    Hard-failure exits with code 2 and a precise hint. Recoverable
+    mistakes (top-level `params`) are handled by _normalize_flat_params
+    via a deprecation warning instead.
+    """
+    bad = []
+    bad.extend(_scan_for_bad_aliases(entry))
+    bad.extend(_scan_for_bad_aliases(entry.get("basic"), prefix="basic."))
+    bad.extend(_scan_for_bad_aliases(entry.get("params"), prefix="params."))
+
+    if not bad:
+        return
+
+    print(f"\n❌ Invalid grading_params.json entry for {file_label}:", file=sys.stderr)
+    for key, (correct, reason) in bad:
+        print(f"   ✗ Field '{key}' is not recognized.", file=sys.stderr)
+        print(f"     → Use '{correct}' instead.", file=sys.stderr)
+        print(f"     → Why: {reason}", file=sys.stderr)
+    print(
+        "\n   Authoritative schema reference: see rt_map_*() functions in "
+        "photo-grader/scripts/grade.py,",
+        file=sys.stderr,
+    )
+    print(
+        "   or the Curator prompt at "
+        "openclaw-photo-agents-creator/templates/photo-curator-user-prompt-grading.md",
+        file=sys.stderr,
+    )
+    sys.exit(2)
+
+
 def _normalize_flat_params(entry):
-    """Convert flat params dict to nested structure."""
-    BASIC_KEYS = {
-        "exposure",
-        "contrast",
-        "highlights",
-        "shadows",
-        "whites",
-        "blacks",
-        "temp_offset",
-        "tint_offset",
-        "vibrance",
-        "saturation",
-    }
-    DETAIL_KEYS = {"sharpen_amount", "sharpen_radius", "noise_reduction", "noise_detail"}
-    EFFECTS_KEYS = {"vignette_amount", "grain_amount", "grain_size"}
-    RAW_KEYS = {"auto_bright", "bright"}
+    """Convert legacy flat {params: {...}} dict to nested structure.
+
+    Accepts (and migrates with a deprecation warning) the old flat format
+    that puts every field under top-level `params`. The canonical format
+    uses nested groups: {file, style, basic: {...}, tone_curve: {...}, ...}.
+
+    Hard-fails on known LLM-mistake aliases (params/temperature/tint at the
+    top level or under basic) via _check_known_aliases().
+    """
+    # First: hard-fail on truly bad aliases (caught here regardless of nesting).
+    # This intentionally runs BEFORE the flat→nested migration so users see
+    # "use temperature_kelvin" before any silent normalization.
+    _check_known_aliases(entry, file_label=entry.get("file", "<unknown>"))
 
     flat = entry.get("params", {})
     if not flat:
         return entry
-    if any(k in entry for k in ("basic", "detail", "effects", "tone_curve", "hsl")):
+    if any(k in entry for k in _NESTED_GROUPS):
+        # Mixed schema: both nested groups (basic/tone_curve/...) AND legacy
+        # top-level `params` are present. We can't safely merge them without
+        # guessing the user's intent (which one wins on collision?), so
+        # the nested groups take precedence and `params` is dropped.
+        # Warn loudly so the user can move keys to the right nested group —
+        # silent drop here is exactly the kind of failure mode this commit
+        # set out to eliminate (see CHANGELOG 1.0.1 "P1-1 schema hard-fail").
+        print(
+            f"⚠️  Mixed schema in entry for '{entry.get('file', '?')}': "
+            f"both nested groups (basic/tone_curve/...) AND legacy top-level "
+            f"'params' are present. The 'params' block will be IGNORED — "
+            f"move its keys into the appropriate nested group "
+            f"(basic / tone_curve / hsl / color_grading / detail / effects / raw).",
+            file=sys.stderr,
+        )
         return entry
+
+    print(
+        f"⚠️  DEPRECATED schema in entry for '{entry.get('file', '?')}': "
+        f"top-level 'params' is legacy. Use nested groups: "
+        f"{{file, basic: {{...}}, tone_curve: {{...}}, raw: {{...}}, ...}}.",
+        file=sys.stderr,
+    )
 
     result = {"file": entry.get("file", ""), "style": entry.get("style", "graded")}
     basic, detail, effects, raw_params = {}, {}, {}, {}
+    unrecognized = []
     for k, v in flat.items():
-        if k in BASIC_KEYS:
+        if k in _BASIC_KEYS:
             basic[k] = v
-        elif k in DETAIL_KEYS:
+        elif k in _DETAIL_KEYS:
             detail[k] = v
-        elif k in EFFECTS_KEYS:
+        elif k in _EFFECTS_KEYS:
             effects[k] = v
-        elif k in RAW_KEYS:
+        elif k in _RAW_KEYS:
             raw_params[k] = v
+        else:
+            unrecognized.append(k)
+    if unrecognized:
+        print(
+            f"   ⚠️  Ignored unrecognized field(s) inside flat params: "
+            f"{', '.join(unrecognized)}",
+            file=sys.stderr,
+        )
     if basic:
         result["basic"] = basic
     if detail:
@@ -872,7 +1068,7 @@ Supported formats: RAW (NEF, CR2, CR3, ARW, RAF, ORF, RW2, DNG, PEF, SRW, etc.),
 
 Engine: RawTherapee CLI (rawtherapee-cli) — professional-grade output
   AMAZE demosaicing, RL Deconvolution sharpening, IWT denoise,
-  lensfun correction, Auto-Matched Camera Profiles (~50 models).
+  lensfun correction, Auto-Matched Tone Curve (~50 camera models).
 
 Examples:
   %(prog)s grading_params.json
@@ -905,9 +1101,17 @@ Examples:
         "--lens-corr", action="store_true", default=None, help="Enable lens correction (default: from config)"
     )
     parser.add_argument("--no-lens-corr", dest="lens_corr", action="store_false", help="Disable lens correction")
-    parser.add_argument("--auto-match", action="store_true", default=None, help="Enable Auto-Matched Camera Profile")
     parser.add_argument(
-        "--no-auto-match", dest="auto_match", action="store_false", help="Disable Auto-Matched Camera Profile"
+        "--auto-match",
+        action="store_true",
+        default=None,
+        help="Enable Auto-Matched Tone Curve (RT HistogramMatching — matches in-camera JPG tone)",
+    )
+    parser.add_argument(
+        "--no-auto-match",
+        dest="auto_match",
+        action="store_false",
+        help="Disable Auto-Matched Tone Curve",
     )
     parser.add_argument("--workers", type=int, default=None, help="Parallel workers")
 

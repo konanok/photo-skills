@@ -1,6 +1,6 @@
 ---
 name: photo-grader
-version: 1.0.0
+version: 1.0.1
 description: |
   Apply professional-grade color grading to camera RAW/JPG/HEIC photos.
   Uses RawTherapee CLI as the sole processing engine.
@@ -24,11 +24,13 @@ description: |
 
   Workflow:
   1. Use `photo-toolkit` to generate thumbnails
-  2. Use multimodal LLM with photo curator prompt to generate grading parameters
+  2. Use multimodal LLM to generate grading parameters as a nested JSON
+     (top-level fields: file / style / basic / tone_curve / hsl /
+     color_grading / detail / effects / raw — see "Color Grading Features"
+     section below and the rt_map_*() functions in scripts/grade.py for the
+     authoritative field list)
   3. Save LLM's JSON output as `grading_params.json`
   4. Run `grade.py` to batch-apply grading via RawTherapee
-
-  ⚠️ IMPORTANT: Use photo_curator_prompt.md V3 (NOT v1/v2). V3 uses Lightroom-standard params with auto-mapping.
 metadata:
   openclaw:
     homepage: https://github.com/konanok/photo-skills
@@ -177,7 +179,7 @@ All standard Lightroom parameters are supported with intelligent mapping:
 
 ### RawTherapee-Specific Features
 
-- **Auto-Matched Camera Profile**: Matches in-camera JPEG tone for ~50 camera models
+- **Auto-Matched Tone Curve** (RT `[Exposure] HistogramMatching`): Matches in-camera JPEG tone for ~50 camera models
 - **Lens Correction**: Automatic via lensfun database
 - **Fast Export Mode**: Skip heavy modules for speed
 - **16-bit Output**: TIFF/PNG at 16-bit depth
