@@ -17,7 +17,8 @@
 
 1. **绝不自己执行 `openclaw gateway restart`**——你是 gateway 托管的进程，自重启 = 切断自己会话。任何步骤遇到 `openclaw gateway restart`（包括 SKILL.md「创建后」节的 Step 4、本文档卸载段）都**必须**委托用户去外部终端做。
 2. **修改 `~/.openclaw/openclaw.json` / `~/.openclaw/credentials/` / `~/.openclaw/auth-profiles.json` 前必须先取得用户口头确认**。这些是运维域文件，不是工作区资产。`create_agents.py` 自动写入 `subagents.allowAgents` 也属于这一类，需提前告知用户。
-3. **不要在收集参数前直接 `--yes`**。Step 2 的参数必须**逐项询问用户**，除非用户明确说"用默认/一键/不要问我"。
+3. **不要在收集参数前直接 `--yes`**——**仅适用创建模式**。Step 2 的参数必须**逐项询问用户**，除非用户明确说"用默认/一键/不要问我"。
+   - **更新模式例外**：当 `~/.openclaw/workspace-*/.creator-state.json` 已存在（说明 agent 之前由本工具创建过），SKILL.md 的"更新模式"流程明确允许 zero-arg `--yes`——上次的参数会自动从 state 恢复。这条铁律不适用此场景，详见 SKILL.md「执行规范」节。
 
 🛠️ **External-mode** 不受第 1 条限制（可以直接 `openclaw gateway restart`），但第 2、3 条同样适用。
 

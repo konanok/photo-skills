@@ -40,6 +40,24 @@ python3 scripts/create_agents.py \
     --yes
 ```
 
+## 更新已有 Agent（重跑即升级）
+
+仓库代码改动后想让运行中的 agent 用上新版？**直接重跑本脚本**——脚本会自动识别既有 agent 并进入更新流程：
+
+```bash
+cd ~/.openclaw/skills/photo-skills && git pull
+python3 openclaw-photo-agents-creator/scripts/create_agents.py --yes
+```
+
+更新模式下：
+
+- ✅ 自动从 `.creator-state.json` 恢复 ID / 昵称 / Emoji，无需重传参数
+- 🔄 覆盖刷新 `BOOTSTRAP.md` / `prompts/` / `skills/<photo-*>/`
+- 🛡️ `skills/config.toml`（照片输入/输出目录）永不覆盖；schema 有变更时打印 `diff` 命令提示手动核对
+- ⚠️ `BOOTSTRAP.md` / `prompts/*.md` 改动需要 `openclaw gateway restart` 才能被运行中的 agent 加载；仅 `skills/<skill>/scripts/*.py` 改动则不必
+
+详细的判定逻辑、老用户首次升级注意事项、参数优先级（CLI > state > DEFAULTS）等见 [`SKILL.md`](./SKILL.md) 的"更新已有 Agent"章节。
+
 ## 创建内容
 
 ### PhotoArtist Agent

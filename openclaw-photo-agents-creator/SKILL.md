@@ -2,18 +2,26 @@
 name: openclaw-photo-agents-creator
 version: 1.0.0
 description: |
-  自动创建 OpenClaw 双 Agent 摄影工作流系统。
+  创建或更新 OpenClaw 双 Agent 摄影工作流系统（重跑即升级）。
 
   一键部署 PhotoArtist Agent（艺术总监 — 编排执行）和 PhotoCurator Agent（策展师 — 选片/排版/调色），
-  包含完整的 Skill 配置、Agent 灵魂定义、工作流编排和协作协议。
+  包含完整的 Skill 配置、Agent 灵魂定义、工作流编排和协作协议。同一脚本同时承担"首次创建"
+  和"既有 agent 升级"两条路径——重跑会自动识别既有 agent，从 .creator-state.json 恢复参数，
+  并刷新 BOOTSTRAP.md / prompts / skills/ 到仓库最新版本。
 
   Use when the user wants to:
   - 快速搭建 OpenClaw 摄影后期工作流
   - 创建 photoartist + photocurator 双 Agent 系统
   - 部署 RAW → 缩略图 → 选片 → 调色 → 排版的完整流水线
+  - **更新 / 升级既有的 photoartist + photocurator agent 到 photo-skills 仓库最新版**
+  - **同步本地 skill 代码改动到 OpenClaw 运行时（重跑 creator）**
+  - **拉取 photo-skills 新版本后让 agent 用上新代码 / 新 BOOTSTRAP / 新 prompts**
 
   Triggers: User mentions creating OpenClaw agents, setting up photo workflow,
-  deploying photographer agent, auto photo grading system.
+  deploying photographer agent, auto photo grading system, **updating photo agents,
+  upgrading photo-skills, refreshing agent workspace, applying new BOOTSTRAP/prompts
+  to running agent, syncing local skill changes to OpenClaw runtime,
+  升级 / 更新 photo agent，刷新 agent 工作区，把新代码部署到 agent**.
 metadata:
   openclaw:
     homepage: https://github.com/konanok/photo-skills
@@ -91,6 +99,62 @@ python3 scripts/create_agents.py \
 | `--yes`, `-y`     | 非交互模式，使用默认配置     | -            |
 
 > 工作区基目录通过环境变量 `OPENCLAW_STATE_DIR` 指定（默认 `~/.openclaw`），与 OpenClaw 官方保持一致。
+
+## 更新已有 Agent（重跑 = 升级）
+
+仓库代码改了想让运行中的 agent 用上新版？**直接重跑本脚本**——脚本会自动识别并进入更新模式：
+
+```bash
+cd ~/.openclaw/skills/photo-skills        # 或你的 clone 路径
+git pull                                    # 拉取最新代码（如适用）
+python3 openclaw-photo-agents-creator/scripts/create_agents.py --yes
+```
+
+更新模式下脚本会：
+
+- ✅ **自动发现** — 扫描所有 workspace 找到上次创建的 agent，无需重新指定 `--artist-id` 等参数
+- ✅ **保留参数** — 上次的昵称 / Emoji / 用户称呼自动从 `.creator-state.json` 恢复
+- ✅ **跳过注册** — 已注册的 agent 不会再过 `openclaw agents add`
+- 🔄 **覆盖刷新** — `BOOTSTRAP.md` / `prompts/` / `skills/<photo-*>/` 全部重写为最新模板/代码
+- 🛡️ **保护用户配置** — `skills/config.toml`（照片输入/输出目录）**永不覆盖**；如新版 schema 有变更脚本会提示手动 diff
+
+**显式覆盖参数**：如想顺带改昵称/Emoji，仍可通过 CLI 传入：
+
+```bash
+python3 openclaw-photo-agents-creator/scripts/create_agents.py --yes \
+    --artist-name "新名字"
+```
+
+CLI 参数 > `.creator-state.json` 中的旧值 > `DEFAULTS`，逐项覆盖。
+
+**何时需要重启 gateway**：
+
+| 改动范围                                     | 是否需要 `openclaw gateway restart`        |
+| -------------------------------------------- | ------------------------------------------ |
+| 仅 `skills/<skill>/scripts/*.py`（脚本逻辑） | 否，agent 调用 skill 时才读                |
+| `BOOTSTRAP.md` / `prompts/*.md` 模板         | 是，agent 启动时已读入做系统消息           |
+| `requirements.txt` / 系统依赖                | 否（脚本会重跑 `setup_deps.sh` 检查/安装） |
+
+### 老用户首次升级（`.creator-state.json` 还不存在）
+
+`.creator-state.json` 是较新引入的——在它之前创建的 agent，第一次升级时 workspace 里还没这个文件。脚本会按以下顺序兜底：
+
+1. **默认 ID 兜底**：如果你当初用默认 `photoartist` + `photocurator` 创建，且这两个 agent 在 OpenClaw 中已注册——脚本会自动识别并进入更新流程，**无需手动传参数**。完成后会写入 state，下次起完全 zero-arg。
+2. **自定义 ID 用户**：第一次升级仍需显式告诉脚本你的 ID：
+   ```bash
+   python3 openclaw-photo-agents-creator/scripts/create_agents.py --yes \
+       --artist-id <你的 artist ID> --curator-id <你的 curator ID>
+   ```
+   只需做一次——成功后 state 会落盘，之后所有升级 zero-arg。
+3. **自定义 workspace 路径用户**（极少数）：当初用 `openclaw agents add foo --workspace /tmp/myws` 这类非 `~/.openclaw/workspace-<id>` 的路径，本工具的 fallback 不能识别。请在升级前手动创建 `<your-workspace>/.creator-state.json`（参考其他 workspace 里的 state 文件结构），或在 OpenClaw 中先 `agents remove` 后用本脚本重新注册。
+
+> 兜底**故意只识别默认 ID**，不做 ID 子串匹配（`"artist"`/`"curator"`）或 BOOTSTRAP 内容嗅探。这是有意的保守设计：宁可让自定义 ID 用户多传一次参数，也不引入容易误判的猜测逻辑。
+
+> **`.creator-state.json` 是什么？** 每次创建/更新成功后，脚本会在
+> `~/.openclaw/workspace-<id>/.creator-state.json` 写入该 agent 的角色（artist/curator）、
+> 昵称、Emoji 和 peer agent ID。下次重跑时自动发现并复用。手动删除该文件 = 让脚本"忘记"
+> 这个 agent 由本工具创建过；自定义 agent ID 的用户首次更新前**不要**删除它，否则脚本将进入
+> 创建模式而非更新。
 
 ## 创建后配置
 
@@ -264,6 +328,20 @@ openclaw agent --agent photoartist --message "帮我处理照片"
 
 ## 执行规范
 
+### 先判断：创建 vs 更新
+
+执行前先判断当前是**首次创建**还是**更新已有 agent**：
+
+```bash
+# 检查是否已有由本工具创建的 agent
+ls ~/.openclaw/workspace-*/.creator-state.json 2>/dev/null
+```
+
+- **有输出** → 更新模式，按下方"更新模式"流程
+- **无输出** → 首次创建模式，按下方"创建模式"流程
+
+### 创建模式（首次）
+
 1. **必须先收集配置**：在执行脚本前，**逐一确认**以下参数：
    - Artist 昵称（默认"照片艺术总监"）
    - Artist Emoji（默认 🎬）
@@ -275,3 +353,15 @@ openclaw agent --agent photoartist --message "帮我处理照片"
 2. **使用 CLI 参数显式传入**：收集完参数后，通过 `--xxx` 参数传入脚本，**不要使用 `--yes`**。
 3. **仅当用户明确要求**时才用 `--yes`：如用户说"用默认值"、"一键创建"、"不要问我直接跑"等。
 4. **展示创建结果**：执行完成后，列出已创建的文件和下一步操作。
+
+### 更新模式（已有 agent）
+
+1. **不要再问参数**：上次的参数会自动从 `.creator-state.json` 恢复。直接：
+   ```bash
+   python3 scripts/create_agents.py --yes
+   ```
+2. **仅当用户明确要求改昵称/Emoji**时才传 `--xxx` 覆盖（如 `--artist-name "新名字"`）。
+3. **执行后必须告知用户**：
+   - 哪些文件被刷新（脚本输出会列出）
+   - 是否需要重启 gateway（取决于改动范围，详见上文表格）
+   - `skills/config.toml` 不会被覆盖；如 CHANGELOG 提到 schema 变更，提醒用户手动 diff
